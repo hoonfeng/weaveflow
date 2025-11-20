@@ -1,0 +1,34 @@
+module: admin
+endpoint: plugins_external_list
+method: GET
+path: /api/admin/plugins/external
+auth: jwt
+roles: [admin]
+permissions: [admin.plugins.external_list]
+docs:
+  title: 外置插件列表
+  response:
+    description: 返回对外提供API服务的插件列表
+    schema:
+      type: array
+      props:
+        item:
+          type: object
+          props:
+            name: { type: string }
+            endpoints: { type: array }
+steps:
+  - admin.plugins_usage:
+      out: usage
+  - transform:
+      mapping:
+        list: "{{ usage.external }}"
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ list }}" }
+      body: "{{ list }}"
+    example:
+      code: 0
+      msg: ok
+      data:
+        - { name: llm, endpoints: ["/api/llm/chat"] }

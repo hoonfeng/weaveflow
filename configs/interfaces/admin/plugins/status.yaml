@@ -1,0 +1,36 @@
+module: admin
+endpoint: plugins_status
+method: GET
+path: /api/admin/plugins/status
+auth: jwt
+roles: [admin]
+permissions: [admin.plugins.status]
+docs:
+  title: 插件状态
+  description: 返回当前已注册插件的状态
+  response:
+    schema:
+      type: array
+      props:
+        item:
+          type: object
+          props:
+            name: { type: string }
+            enabled: { type: boolean }
+            running: { type: boolean }
+            functions: { type: array }
+steps:
+  - plugins.status:
+      out: ps
+  - transform:
+      mapping:
+        list: "{{ ps.plugins }}"
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ list }}" }
+      body: "{{ list }}"
+    example:
+      code: 0
+      msg: ok
+      data:
+        - { name: metrics, enabled: true, running: true, functions: [usage, status] }

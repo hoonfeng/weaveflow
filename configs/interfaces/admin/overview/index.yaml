@@ -1,0 +1,36 @@
+module: admin
+endpoint: overview
+method: GET
+path: /api/admin/overview
+auth: jwt
+roles: [admin]
+permissions: [admin.overview.index]
+docs:
+  title: 概览统计
+  response:
+    description: 返回基础统计（示例字段）
+    schema:
+      type: object
+      props:
+        total_users: { type: int }
+        total_orders: { type: int }
+    example:
+      code: 0
+      msg: ok
+      data: { total_users: 120, total_orders: 300 }
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT COUNT(*) AS total_users FROM users"
+      out: u
+  - sql.query:
+      ds: main
+      sql: "SELECT COUNT(*) AS total_orders FROM orders"
+      out: o
+  - transform:
+      mapping:
+        data: { total_users: "{{ u.0.total_users }}", total_orders: "{{ o.0.total_orders }}" }
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ data }}" }
+      body: "{{ data }}"

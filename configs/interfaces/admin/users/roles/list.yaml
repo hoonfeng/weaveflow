@@ -1,0 +1,42 @@
+module: admin
+endpoint: user_roles_list
+method: GET
+path: /api/admin/user_roles
+auth: jwt
+roles: [admin]
+permissions: [admin.user_roles.list]
+docs:
+  title: 用户角色列表
+  response:
+    description: 返回用户角色列表
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: array
+          props:
+            item:
+              type: object
+              props:
+                user_id: { type: int }
+                role_id: { type: int }
+                role_name: { type: string }
+request:
+  query:
+    user_id: { type: int, required: false }
+    role_id: { type: int, required: false }
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT ur.user_id, ur.role_id, r.name AS role_name FROM user_roles ur JOIN roles r ON ur.role_id=r.id WHERE (?=0 OR ur.user_id=?) AND (?=0 OR ur.role_id=?)"
+      params:
+        user_id: "{{ user_id }}"
+        role_id: "{{ role_id }}"
+      order: [user_id, user_id, role_id, role_id]
+      out: rows
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ rows }}" }
+      body: "{{ rows }}"

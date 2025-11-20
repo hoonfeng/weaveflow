@@ -1,0 +1,50 @@
+module: service
+endpoint: compute
+method: POST
+path: /api/service/compute
+auth: apikey
+labels: [paid, compute]
+permissions: [service.compute]
+docs:
+  title: 付费计算示例
+  description: 使用ApiKey+HMAC签名访问，对调用进行计量
+  response:
+    description: 返回计算结果z，包含通用包装
+    headers:
+      Content-Type: application/json
+    schema:
+      props:
+        code: { type: integer, description: 返回码 }
+        msg: { type: string, description: 返回信息 }
+        data:
+          type: object
+          description: 结果对象
+          props:
+            z: { type: integer, description: x+y 的和 }
+    example:
+      code: 0
+      msg: ok
+      data:
+        z: 7
+  errors:
+    - { code: E_SIGNATURE_INVALID, message: 签名无效, description: HMAC 校验失败 }
+    - { code: E_QUOTA_EXCEEDED, message: 超出配额, description: 请升级套餐或稍后再试 }
+request:
+  body:
+    x: { type: int, required: true, desc: 输入X }
+    y: { type: int, required: true, desc: 输入Y }
+  header:
+    X-Api-Key: { type: string, required: true, desc: 密钥 }
+    X-Timestamp: { type: string, required: true, desc: RFC3339 时间戳, constraints: { format: date-time } }
+    X-Nonce: { type: string, required: true, desc: 随机字符串 }
+    X-Signature: { type: string, required: true, desc: Base64URL HMAC-SHA256, constraints: { regex: "^[A-Za-z0-9_-]+$" } }
+steps:
+  - validate: { target: x, required: true }
+  - validate: { target: y, required: true }
+  - transform:
+      mapping:
+        z: "{{ add x y }}"
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { z: "{{ z }}" } }
+      body: { z: "{{ z }}" }

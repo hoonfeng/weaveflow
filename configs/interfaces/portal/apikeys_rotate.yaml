@@ -1,0 +1,32 @@
+module: portal
+endpoint: apikeys_rotate
+method: POST
+path: /api/portal/apikeys/{id}/rotate
+permissions: [portal.apikeys.rotate]
+docs:
+  title: 轮换 API Key 密钥
+  response:
+    description: 返回新 secret
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            secret: { type: string }
+steps:
+  - validate: { target: header.X-Tenant-Id, required: true }
+  - transform:
+      mapping:
+        new_secret: "{{ uuid }}"
+  - sql.exec:
+      ds: main
+      sql: "UPDATE api_keys SET secret=? WHERE id=? AND tenant_id=?"
+      params: { secret: "{{ new_secret }}", id: "{{ id }}", tenant_id: "{{ header.X-Tenant-Id }}" }
+      order: [secret, id, tenant_id]
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { secret: "{{ new_secret }}" } }
+      body: { secret: "{{ new_secret }}" }

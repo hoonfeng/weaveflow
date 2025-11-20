@@ -1,0 +1,37 @@
+module: admin
+endpoint: permissions_create
+method: POST
+path: /api/admin/permissions
+auth: jwt
+roles: [admin]
+permissions: [admin.permissions.create]
+docs:
+  title: 创建权限
+  response:
+    description: 返回创建的权限代码
+    schema:
+      type: object
+      props:
+        code: { type: string }
+    example:
+      code: 0
+      msg: ok
+      data: { code: admin.roles.update }
+request:
+  body:
+    code: { type: string, required: true, desc: 权限代码 }
+    name: { type: string, required: true, desc: 权限名称 }
+    description: { type: string, required: false, desc: 描述 }
+steps:
+  - sql.exec:
+      ds: main
+      sql: "INSERT INTO permissions(code,name,description) VALUES(?,?,?)"
+      params:
+        code: "{{ code }}"
+        name: "{{ name }}"
+        description: "{{ description }}"
+      order: [code, name, description]
+  - response:
+      status: 201
+      wrap: { code: 0, msg: ok, data: { code: "{{ code }}" } }
+      body: { code: "{{ code }}" }

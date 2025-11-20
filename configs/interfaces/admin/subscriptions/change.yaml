@@ -1,0 +1,43 @@
+module: admin
+endpoint: subscriptions_change
+method: POST
+path: /api/admin/subscriptions/change
+auth: jwt
+roles: [admin]
+permissions: [admin.subscriptions.change]
+docs:
+  title: 变更订阅
+  response:
+    description: 返回变更的租户ID与订阅状态
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            tenant_id: { type: int, description: 租户ID }
+            status: { type: string, description: 订阅状态 }
+    example:
+      code: 0
+      msg: ok
+      data: { tenant_id: 8, status: active }
+request:
+  body:
+    tenant_id: { type: int, required: true }
+    plan_id: { type: int, required: true }
+    status: { type: string, required: true }
+steps:
+  - sql.exec:
+      ds: main
+      sql: "UPDATE subscriptions SET plan_id=?, status=? WHERE tenant_id=?"
+      params:
+        plan_id: "{{ plan_id }}"
+        status: "{{ status }}"
+        tenant_id: "{{ tenant_id }}"
+      order: [plan_id, status, tenant_id]
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { tenant_id: "{{ tenant_id }}" } }
+      body: { tenant_id: "{{ tenant_id }}" }

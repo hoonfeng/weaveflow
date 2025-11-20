@@ -1,0 +1,53 @@
+module: admin
+endpoint: roles_permissions_set
+method: POST
+path: /api/admin/roles/{id}/permissions
+auth: jwt
+roles: [admin]
+permissions: [admin.roles.permissions_set]
+docs:
+  title: 设置角色权限
+  response:
+    description: 返回设置后的权限数量
+    schema:
+      type: object
+      props:
+        role_id: { type: int }
+        count: { type: int }
+    example:
+      role_id: 2
+      count: 5
+request:
+  path:
+    id: { type: int, required: true }
+  body:
+    perm_ids: { type: array, required: true }
+steps:
+  - validate: { target: id, required: true }
+  - transform:
+      mapping:
+        list: "{{ perm_ids }}"
+        cnt: "{{ len perm_ids }}"
+  - transaction: { action: begin, ds: main }
+  - sql.exec:
+      ds: main
+      sql: "DELETE FROM role_permissions WHERE role_id=CAST(? AS UNSIGNED)"
+      params:
+        role_id: "{{ id }}"
+      order: [role_id]
+  - loop:
+      items: "{{ list }}"
+      var: item
+      do:
+        - sql.exec:
+            ds: main
+            sql: "INSERT INTO role_permissions(role_id, perm_id) VALUES(CAST(? AS UNSIGNED), CAST(? AS UNSIGNED))"
+            params:
+              role_id: "{{ id }}"
+              perm_id: "{{ item }}"
+            order: [role_id, perm_id]
+  - transaction: { action: commit, ds: main }
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { role_id: "{{ id }}", count: "{{ cnt }}" } }
+      body: { role_id: "{{ id }}", count: "{{ cnt }}" }

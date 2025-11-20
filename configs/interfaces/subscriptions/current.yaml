@@ -1,0 +1,24 @@
+module: subscriptions
+endpoint: current
+method: GET
+path: /api/subscriptions/current
+auth: jwt
+roles: ["admin"]
+docs:
+  title: 当前订阅
+  description: 查询租户当前有效订阅与配额
+request:
+  query:
+    tenant_id: { type: int, required: true, desc: 租户ID }
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT s.id,s.plan_id,p.name,p.monthly_quota,p.price,s.start_at,s.next_billing_at FROM subscriptions s JOIN plans p ON s.plan_id=p.id WHERE s.tenant_id=? AND s.status='active' LIMIT 1"
+      params:
+        tenant_id: "{{ tenant_id }}"
+      order: [tenant_id]
+      out: rows
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ rows }}" }
+      body: "{{ rows }}"

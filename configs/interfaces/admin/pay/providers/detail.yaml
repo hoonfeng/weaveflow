@@ -1,0 +1,21 @@
+module: admin
+endpoint: pay_providers_detail
+method: GET
+path: /api/admin/pay/providers/{id}
+auth: jwt
+roles: [admin]
+permissions: [admin.pay.providers.detail]
+docs:
+  title: 支付通道详情
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT id, code, name, enabled, config_json, created_at, updated_at FROM payment_providers WHERE id=?"
+      params:
+        id: "{{ id }}"
+      order: [id]
+      out: row
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ row.0 }}" }
+      body: "{{ row.0 }}"

@@ -1,0 +1,13 @@
+table: webhook_tasks
+columns:
+  id: { type: BIGINT, pk: true, auto: true }
+  endpoint_id: { type: BIGINT, notNull: true }
+  event: { type: VARCHAR(64), notNull: true }
+  payload: { type: TEXT, notNull: true }
+  status: { type: VARCHAR(32), notNull: true }
+  retries: { type: INT, notNull: true }
+  next_try_at: { type: TIMESTAMP }
+  created_at: { type: TIMESTAMP, default: CURRENT_TIMESTAMP }
+indexes:
+  - name: idx_webhook_tasks_endpoint
+    columns: [endpoint_id]

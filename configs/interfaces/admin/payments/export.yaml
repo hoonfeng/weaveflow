@@ -1,0 +1,49 @@
+module: admin
+endpoint: payments_export
+method: GET
+path: /api/admin/payments/export
+auth: jwt
+roles: [admin]
+permissions: [admin.payments.export]
+docs:
+  title: 支付记录导出
+  response:
+    description: 返回支付记录列表（JSON），用于下载
+    headers:
+      Content-Type: application/json
+    schema:
+      type: array
+      props:
+        item:
+          type: object
+          props:
+            txn_id: { type: string }
+            order_no: { type: string }
+            provider: { type: string }
+            status: { type: string }
+            ts: { type: string }
+request:
+  query:
+    order_no: { type: string, required: false }
+    provider: { type: string, required: false }
+    status: { type: string, required: false }
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT order_no, provider, status, txn_id, ts FROM payments WHERE (?='' OR order_no=?) AND (?='' OR provider=?) AND (?='' OR status=?) ORDER BY ts DESC"
+      params:
+        order_no1: "{{ order_no }}"
+        order_no2: "{{ order_no }}"
+        provider1: "{{ provider }}"
+        provider2: "{{ provider }}"
+        status1: "{{ status }}"
+        status2: "{{ status }}"
+      order: [order_no1, order_no2, provider1, provider2, status1, status2]
+      out: rows
+  - response:
+      status: 200
+      headers: { Content-Type: application/json }
+      wrap: { code: 0, msg: ok, data: "{{ rows }}" }
+      body: "{{ rows }}"
+    example:
+      - { txn_id: "tx_001", order_no: "ord_001", provider: "alipay", status: "succeeded", ts: "2025-11-01T10:00:00Z" }

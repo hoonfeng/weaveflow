@@ -1,0 +1,35 @@
+module: subscriptions
+endpoint: create
+method: POST
+path: /api/subscriptions
+auth: jwt
+roles: ["admin"]
+docs:
+  title: 创建订阅
+  description: 为租户创建或切换订阅套餐
+request:
+  body:
+    tenant_id: { type: int, required: true, desc: 租户ID }
+    plan_id: { type: int, required: true, desc: 套餐ID }
+steps:
+  - validate: { target: tenant_id, required: true }
+  - validate: { target: plan_id, required: true }
+  - transaction: { action: begin, ds: main }
+  - sql.exec:
+      ds: main
+      sql: "UPDATE subscriptions SET status='inactive' WHERE tenant_id=? AND status='active'"
+      params:
+        tenant_id: "{{ tenant_id }}"
+      order: [tenant_id]
+  - sql.exec:
+      ds: main
+      sql: "INSERT INTO subscriptions(tenant_id, plan_id, status, start_at) VALUES(?, ?, 'active', NOW())"
+      params:
+        tenant_id: "{{ tenant_id }}"
+        plan_id: "{{ plan_id }}"
+      order: [tenant_id, plan_id]
+  - transaction: { action: commit, ds: main }
+  - response:
+      status: 201
+      wrap: { code: 0, msg: ok, data: { tenant_id: "{{ tenant_id }}", plan_id: "{{ plan_id }}" } }
+      body: { tenant_id: "{{ tenant_id }}", plan_id: "{{ plan_id }}" }

@@ -1,0 +1,110 @@
+module: admin
+endpoint: users_list
+method: GET
+path: /api/admin/users
+auth: jwt
+roles: [admin]
+permissions: [admin.users.list]
+docs:
+  title: 用户列表
+  response:
+    description: 返回用户列表（分页与搜索）
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            items:
+              type: array
+              props:
+                item:
+                  type: object
+                  props:
+                    id: { type: integer }
+                    username: { type: string }
+                    email: { type: string }
+                    role: { type: string }
+                    status: { type: string }
+                    created_at: { type: string }
+            total: { type: int }
+            page: { type: int }
+            page_size: { type: int }
+request:
+  query:
+    page: { type: int, required: false }
+    page_size: { type: int, required: false }
+    search: { type: string, required: false }
+steps:
+  - transform:
+      mapping:
+        size_var: "{{ or page_size (or size 50) }}"
+        page_var: "{{ or page 1 }}"
+        offset_var: "{{ sub (mul page_var size_var) size_var }}"
+        dbg: "{{ lower debug }}"
+  - branch:
+      if: "{{ search }}"
+      then:
+        - transform:
+            mapping:
+              kw: "{{ lower search }}"
+      else:
+        - transform:
+            mapping:
+              kw: ""
+  - sql.query:
+      ds: main
+      sql: "SELECT u.id, u.username, u.email, u.created_at, COALESCE(GROUP_CONCAT(r.name), '') AS roles FROM users u LEFT JOIN user_roles ur ON ur.user_id=u.id LEFT JOIN roles r ON r.id=ur.role_id WHERE (?='' OR LOWER(u.username) LIKE CONCAT('%', ?, '%') OR LOWER(u.email) LIKE CONCAT('%', ?, '%')) GROUP BY u.id, u.username, u.email, u.created_at ORDER BY u.id DESC LIMIT {{ size_var }} OFFSET {{ offset_var }}"
+      params:
+        s1: "{{ kw }}"
+        s2: "{{ kw }}"
+        s3: "{{ kw }}"
+      order: [s1, s2, s3]
+      out: items
+  - branch:
+      if: "{{ gt size_var 0 }}"
+      then:
+        - sql.query:
+            ds: main
+            sql: "SELECT COUNT(DISTINCT u.id) AS total FROM users u LEFT JOIN user_roles ur ON ur.user_id=u.id LEFT JOIN roles r ON ur.role_id=r.id WHERE (?='' OR LOWER(u.username) LIKE CONCAT('%', ?, '%') OR LOWER(u.email) LIKE CONCAT('%', ?, '%'))"
+            params:
+              s1: "{{ kw }}"
+              s2: "{{ kw }}"
+              s3: "{{ kw }}"
+            order: [s1, s2, s3]
+            out: cnt
+      else:
+        - transform:
+            mapping:
+              cnt: [{ total: "{{ len items }}" }]
+  - transform:
+      mapping:
+        total: "{{ or cnt.0.total 0 }}"
+        page: "{{ page_var }}"
+        page_size: "{{ size_var }}"
+        norm_items: "{{ items }}"
+  - branch:
+      if: "{{ eq dbg sql }}"
+      then:
+        - transform:
+            mapping:
+              sqls: "{{ sql_log }}"
+      else:
+        - transform:
+            mapping:
+              sqls: []
+  - transform:
+      mapping:
+        items2: "{{ norm_items }}"
+  - transform:
+      mapping:
+        items3: "{{ items2 }}"
+  - transform:
+      mapping:
+        items: "{{ items3 }}"
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { items: "{{ items }}", total: "{{ total }}", page: "{{ page }}", page_size: "{{ page_size }}", sql: "{{ sqls }}" } }
+      body: { items: "{{ items }}", total: "{{ total }}", page: "{{ page }}", page_size: "{{ page_size }}", sql: "{{ sqls }}" }

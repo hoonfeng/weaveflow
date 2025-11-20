@@ -1,0 +1,8 @@
+table: plans
+columns:
+  id: { type: BIGINT, pk: true, auto: true }
+  name: { type: VARCHAR(128), notNull: true }
+  monthly_quota: { type: INT, notNull: true }
+  features: { type: TEXT }
+  price: { type: "DECIMAL(10,2)", notNull: true }
+  created_at: { type: TIMESTAMP, default: CURRENT_TIMESTAMP }

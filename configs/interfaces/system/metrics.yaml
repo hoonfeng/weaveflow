@@ -1,0 +1,18 @@
+module: system
+endpoint: metrics
+method: GET
+path: /metrics
+docs:
+  title: 指标导出
+  response:
+    description: 返回 Prometheus 文本格式指标
+    headers:
+      Content-Type: "text/plain; version=0.0.4"
+steps:
+  - obs.metrics:
+      out: m
+  - response:
+      status: 200
+      headers:
+        Content-Type: "text/plain; version=0.0.4"
+      body: "{{ m }}"

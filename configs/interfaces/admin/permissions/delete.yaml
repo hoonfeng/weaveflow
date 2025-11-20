@@ -1,0 +1,30 @@
+module: admin
+endpoint: permissions_delete
+method: DELETE
+path: /api/admin/permissions/{id}
+auth: jwt
+roles: [admin]
+permissions: [admin.permissions.delete]
+docs:
+  title: 删除权限
+  response:
+    description: 返回删除的权限ID
+    schema:
+      type: object
+      props:
+        id: { type: int }
+steps:
+  - sql.exec:
+      ds: main
+      sql: "DELETE FROM permissions WHERE id=?"
+      params:
+        id: "{{ id }}"
+      order: [id]
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { id: "{{ id }}" } }
+      body: { id: "{{ id }}" }
+    example:
+      code: 0
+      msg: ok
+      data: { id: 12 }

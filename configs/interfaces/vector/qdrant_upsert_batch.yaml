@@ -1,0 +1,38 @@
+module: vector
+endpoint: qdrant_upsert_batch
+method: POST
+path: /api/vector/qdrant/upsert_batch
+docs:
+  title: Qdrant 批量插入
+  description: 批量写入点（需配置 datasources.vector.qdrant）
+  response:
+    description: 返回批量写入状态
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            status: { type: string, description: 状态 }
+    example:
+      code: 0
+      msg: ok
+      data: { status: upserted }
+request:
+  body:
+    collection: { type: string, required: true, desc: "集合名" }
+    items: { type: array, required: true, desc: "列表 [{id,vec,meta}]" }
+steps:
+  - vector.upsert_batch:
+      ds: qdrant
+      collection: "{{ collection }}"
+      items: "{{ items }}"
+  - response:
+      status: 200
+      wrap:
+        code: 0
+        msg: ok
+        data: { status: upserted }
+      body: { status: upserted }

@@ -1,0 +1,44 @@
+module: string
+endpoint: reverse
+method: POST
+path: /api/text/reverse
+auth: apikey
+permissions: [string.reverse]
+docs:
+  title: 文本反转
+  description: 通过插件实现字符串反转
+  response:
+    description: 返回反转后的文本，包含通用包装
+    headers:
+      Content-Type: application/json
+    schema:
+      props:
+        code: { type: integer, description: 返回码 }
+        msg: { type: string, description: 返回信息 }
+        data: { type: string, description: 反转结果 }
+    example:
+      code: 0
+      msg: ok
+      data: "olleH"
+request:
+  body:
+    text: { type: string, required: true, minLen: 1, desc: 待反转文本 }
+steps:
+  - plugin.call:
+      plugin: string_tools
+      function: reverse
+      params:
+        text: "{{ text }}"
+      circuit:
+        key: string_tools.reverse
+        threshold: 3
+        openMs: 30000
+        fallback: "{{ text }}"
+      out: reversed
+  - response:
+      status: 200
+      wrap:
+        code: 0
+        msg: ok
+        data: "{{ reversed }}"
+      body: "{{ reversed }}"

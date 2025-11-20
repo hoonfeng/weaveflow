@@ -1,0 +1,13 @@
+table: orders
+columns:
+  id: { type: BIGINT, pk: true, auto: true }
+  order_no: { type: VARCHAR(64), notNull: true, unique: true }
+  tenant_id: { type: BIGINT, notNull: true }
+  amount: { type: "DECIMAL(10,2)", notNull: true }
+  currency: { type: VARCHAR(8), notNull: true }
+  provider: { type: VARCHAR(32), notNull: true }
+  status: { type: VARCHAR(32), notNull: true }
+  created_at: { type: TIMESTAMP, default: CURRENT_TIMESTAMP }
+indexes:
+  - name: idx_orders_tenant
+    columns: [tenant_id]

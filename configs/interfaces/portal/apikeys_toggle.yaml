@@ -1,0 +1,32 @@
+module: portal
+endpoint: apikeys_toggle
+method: POST
+path: /api/portal/apikeys/{id}/toggle
+permissions: [portal.apikeys.toggle]
+docs:
+  title: 启用/禁用 API Key
+  response:
+    description: 返回更新后的状态
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            status: { type: string }
+request:
+  body:
+    status: { type: string, required: true, enum: [active, disabled] }
+steps:
+  - validate: { target: header.X-Tenant-Id, required: true }
+  - sql.exec:
+      ds: main
+      sql: "UPDATE api_keys SET status=? WHERE id=? AND tenant_id=?"
+      params: { status: "{{ status }}", id: "{{ id }}", tenant_id: "{{ header.X-Tenant-Id }}" }
+      order: [status, id, tenant_id]
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { status: "{{ status }}" } }
+      body: { status: "{{ status }}" }

@@ -1,0 +1,26 @@
+module: admin
+endpoint: remote_debug
+method: GET
+path: /api/admin/remote/debug
+auth: jwt
+roles: [admin]
+docs:
+  title: 远程调用示例（本地调试）
+  response:
+    description: 返回插件运行时状态
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data: { type: object, description: 插件状态原样透传 }
+steps:
+  - http.request:
+      method: GET
+      url: "http://localhost:8081/debug/plugins"
+      headers: { Accept: application/json }
+      out: r
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ r }}" }
+      body: "{{ r }}"

@@ -1,0 +1,35 @@
+module: admin
+endpoint: migrate
+method: POST
+path: /api/admin/migrate
+auth: jwt
+roles: [admin]
+permissions: [admin.migrate]
+docs:
+  title: 模型迁移
+  description: 按模型配置对齐数据库结构
+  response:
+    description: 返回迁移的模型表名列表
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: array
+          description: 表名列表
+          props:
+            item: { type: string, description: 表名 }
+    example:
+      code: 0
+      msg: ok
+      data: [users, roles, permissions, user_roles]
+steps:
+  - model.apply:
+      ds: main
+      dir: configs/models
+      out: models
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ models }}" }
+      body: "{{ models }}"

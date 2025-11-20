@@ -1,0 +1,29 @@
+module: portal
+endpoint: tenant_users_update
+method: PUT
+path: /api/portal/users/{uid}
+permissions: [portal.tenant_users.update]
+docs:
+  title: 更新子账户角色
+  response:
+    description: 返回更新结果
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data: { type: object }
+request:
+  body:
+    role: { type: string, required: true }
+steps:
+  - validate: { target: header.X-Tenant-Id, required: true }
+  - sql.exec:
+      ds: main
+      sql: "UPDATE tenant_users SET role=? WHERE tenant_id=? AND user_id=?"
+      params: { role: "{{ role }}", tenant_id: "{{ header.X-Tenant-Id }}", uid: "{{ uid }}" }
+      order: [role, tenant_id, uid]
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: {} }
+      body: {}

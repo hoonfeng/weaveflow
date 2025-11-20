@@ -1,0 +1,35 @@
+module: admin
+endpoint: overview_trends
+method: GET
+path: /api/admin/overview/trends
+auth: jwt
+roles: [admin]
+permissions: [admin.overview.trends]
+docs:
+  title: 概览趋势
+  response:
+    description: 返回近12月的用户与订单趋势
+    schema:
+      type: object
+      props:
+        users: { type: array }
+        orders: { type: array }
+    example:
+      code: 0
+      msg: ok
+      data:
+        users: [ { ym: "2025-11", users: 12 } ]
+        orders: [ { ym: "2025-11", orders: 30 } ]
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT DATE_FORMAT(created_at,'%Y-%m') AS ym, COUNT(*) AS users FROM users GROUP BY ym ORDER BY ym DESC LIMIT 12"
+      out: u
+  - sql.query:
+      ds: main
+      sql: "SELECT DATE_FORMAT(created_at,'%Y-%m') AS ym, COUNT(*) AS orders FROM orders GROUP BY ym ORDER BY ym DESC LIMIT 12"
+      out: o
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { users: "{{ u }}", orders: "{{ o }}" } }
+      body: { users: "{{ u }}", orders: "{{ o }}" }

@@ -1,0 +1,20 @@
+module: string
+endpoint: reverse
+method: POST
+path: /api/string/reverse
+auth: jwt
+docs:
+  title: 文本反转
+request:
+  body:
+    text: { type: string, required: true }
+steps:
+  - plugin.call:
+      plugin: string_tools
+      function: reverse
+      params:
+        text: "{{ text }}"
+      out: reversed
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ reversed }}" }

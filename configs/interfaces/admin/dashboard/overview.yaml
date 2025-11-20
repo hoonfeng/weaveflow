@@ -1,0 +1,69 @@
+module: admin
+endpoint: dashboard_overview
+method: GET
+path: /api/admin/dashboard/overview
+auth: jwt
+roles: [admin]
+permissions: [admin.dashboard.view]
+docs:
+  title: 仪表盘概览
+  description: 获取仪表盘概览统计数据
+  response:
+    description: 返回仪表盘统计信息
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            users: { type: int, description: 用户总数 }
+            tenants: { type: int, description: 租户数量 }
+            orders: { type: int, description: 今日订单数 }
+            revenue: { type: int, description: 今日收入 }
+            active_users: { type: int, description: 活跃用户数 }
+            system_status: { type: string, description: 系统状态 }
+    example:
+      code: 0
+      msg: ok
+      data:
+        users: 1524
+        tenants: 89
+        orders: 234
+        revenue: 15680
+        active_users: 452
+        system_status: "healthy"
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT COUNT(*) as total FROM users"
+      out: user_count
+  - sql.query:
+      ds: main
+      sql: "SELECT COUNT(*) as total FROM tenants"
+      out: tenant_count
+  - sql.query:
+      ds: main
+      sql: "SELECT COUNT(*) as total FROM orders WHERE DATE(created_at) = CURDATE()"
+      out: order_count
+  - sql.query:
+      ds: main
+      sql: "SELECT COALESCE(SUM(amount), 0) as total FROM payments WHERE DATE(created_at) = CURDATE()"
+      out: revenue
+  - sql.query:
+      ds: main
+      sql: "SELECT COUNT(DISTINCT user_id) as total FROM user_sessions WHERE last_activity > DATE_SUB(NOW(), INTERVAL 1 HOUR)"
+      out: active_users
+  - transform:
+      mapping:
+        users: "{{ user_count.0.total }}"
+        tenants: "{{ tenant_count.0.total }}"
+        orders: "{{ order_count.0.total }}"
+        revenue: "{{ revenue.0.total }}"
+        active_users: "{{ active_users.0.total }}"
+        system_status: "healthy"
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { users: "{{ users }}", tenants: "{{ tenants }}", orders: "{{ orders }}", revenue: "{{ revenue }}", active_users: "{{ active_users }}", system_status: "{{ system_status }}" } }
+      body: { users: "{{ users }}", tenants: "{{ tenants }}", orders: "{{ orders }}", revenue: "{{ revenue }}", active_users: "{{ active_users }}", system_status: "{{ system_status }}" }

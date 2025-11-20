@@ -1,0 +1,35 @@
+module: auth
+endpoint: login
+method: POST
+path: /api/auth/login
+docs:
+  title: 用户登录
+request:
+  body:
+    username: { type: string, required: true }
+    password: { type: string, required: true }
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT id, username, email, password_hash, salt FROM users WHERE username = ? LIMIT 1"
+      params:
+        username: "{{ username }}"
+      out: user_data
+  - transform:
+      mapping:
+        computed_hash: "{{ sha256_concat password user_data.0.salt }}"
+  - branch:
+      if: "{{ eq computed_hash user_data.0.password_hash }}"
+      then:
+        - auth.jwt:
+            claims:
+              uid: "{{ user_data.0.id }}"
+              username: "{{ user_data.0.username }}"
+            out: token
+        - response:
+            status: 200
+            wrap: { code: 0, msg: ok, data: { token: "{{ token }}" } }
+      else:
+        - response:
+            status: 401
+            wrap: { code: 401, msg: unauthorized, data: {} }

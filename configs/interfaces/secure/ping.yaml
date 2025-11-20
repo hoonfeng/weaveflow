@@ -1,0 +1,36 @@
+module: secure
+endpoint: ping
+method: GET
+path: /api/secure/ping
+auth: jwt
+roles: ["admin"]
+permissions: [secure.ping]
+docs:
+  title: 受保护接口示例
+  description: 需要携带JWT且包含admin角色
+  response:
+    description: 返回通用包装，data为消息体
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            msg: { type: string, description: 消息 }
+    example:
+      code: 0
+      msg: ok
+      data: { msg: secure-ok }
+  errors:
+    - { code: E_UNAUTHORIZED, message: 未授权, description: 缺少或无效的JWT }
+    - { code: E_FORBIDDEN, message: 无权限, description: 需要admin角色 }
+steps:
+  - response:
+      status: 200
+      wrap:
+        code: 0
+        msg: ok
+        data: { msg: secure-ok }
+      body: { msg: secure-ok }

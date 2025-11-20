@@ -1,0 +1,54 @@
+module: admin
+endpoint: users_roles_set
+method: POST
+path: /api/admin/users/{id}/roles
+auth: jwt
+roles: [admin]
+docs:
+  title: 设置用户角色
+  response:
+    description: 返回设置后的角色数量
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            user_id: { type: int }
+            roles_count: { type: int }
+request:
+  path:
+    id: { type: int, required: true }
+  body:
+    roles: { type: array, required: true, desc: 角色ID数组 }
+steps:
+  - validate: { target: id, required: true }
+  - transform:
+      mapping:
+        rid_list: "{{ roles }}"
+        cnt: "{{ len roles }}"
+  - transaction: { action: begin, ds: main }
+  - sql.exec:
+      ds: main
+      sql: "DELETE FROM user_roles WHERE user_id=CAST(? AS UNSIGNED)"
+      params:
+        user_id: "{{ id }}"
+      order: [user_id]
+  - loop:
+      items: "{{ rid_list }}"
+      var: item
+      do:
+        - sql.exec:
+            ds: main
+            sql: "INSERT INTO user_roles(user_id, role_id) VALUES(CAST(? AS UNSIGNED), CAST(? AS UNSIGNED))"
+            params:
+              user_id: "{{ id }}"
+              role_id: "{{ item }}"
+            order: [user_id, role_id]
+  - transaction: { action: commit, ds: main }
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { user_id: "{{ id }}", roles_count: "{{ cnt }}" } }
+      body: { user_id: "{{ id }}", roles_count: "{{ cnt }}" }

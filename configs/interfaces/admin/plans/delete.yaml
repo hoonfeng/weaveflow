@@ -1,0 +1,31 @@
+module: admin
+endpoint: plans_delete
+method: DELETE
+path: /api/admin/plans/{id}
+auth: jwt
+roles: [admin]
+permissions: [admin.plans.delete]
+docs:
+  title: 删除套餐
+  response:
+    description: 返回删除的套餐ID
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            id: { type: int }
+steps:
+  - sql.exec:
+      ds: main
+      sql: "DELETE FROM plans WHERE id=?"
+      params:
+        id: "{{ id }}"
+      order: [id]
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { id: "{{ id }}" } }
+      body: { id: "{{ id }}" }

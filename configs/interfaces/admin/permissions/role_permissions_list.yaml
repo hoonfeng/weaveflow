@@ -1,0 +1,38 @@
+module: admin
+endpoint: role_permissions_list
+method: GET
+path: /api/admin/role_permissions
+auth: jwt
+roles: [admin]
+permissions: [admin.role_permissions.list]
+docs:
+  title: 角色权限列表
+  response:
+    description: 返回角色拥有的权限
+    schema:
+      type: array
+      props:
+        item:
+          type: object
+          props:
+            role_id: { type: int }
+            perm_id: { type: int }
+            code: { type: string }
+            name: { type: string }
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT rp.role_id, rp.perm_id, p.code, p.name FROM role_permissions rp JOIN permissions p ON rp.perm_id=p.id WHERE (?=0 OR rp.role_id=?)"
+      params:
+        role_id: "{{ role_id }}"
+      order: [role_id, role_id]
+      out: rows
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ rows }}" }
+      body: "{{ rows }}"
+    example:
+      code: 0
+      msg: ok
+      data:
+        - { role_id: 1, perm_id: 10, code: admin.users.list, name: 用户列表 }

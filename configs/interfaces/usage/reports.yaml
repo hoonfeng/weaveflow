@@ -1,0 +1,112 @@
+module: usage
+endpoint: reports
+method: POST
+path: /api/usage/reports
+auth: jwt
+roles: [admin]
+docs:
+  title: 用量报表
+  description: 按日/月聚合调用次数与平均耗时
+  response:
+    description: 返回聚合报表，支持多维度分组
+    schema:
+      type: object
+      props:
+        code: { type: int, description: 返回码 }
+        msg: { type: string, description: 返回信息 }
+        data:
+          type: array
+          description: 报表数据
+          props:
+            item:
+              type: object
+              props:
+                bucket: { type: string, description: 时间桶（日/月） }
+                calls: { type: integer, description: 调用次数 }
+                avg_ms: { type: number, description: 平均耗时毫秒 }
+                min_ms: { type: number, description: 最小耗时毫秒 }
+                max_ms: { type: number, description: 最大耗时毫秒 }
+                tenant_id: { type: integer, description: 租户ID，可选 }
+                endpoint: { type: string, description: 接口名，可选 }
+                provider: { type: string, description: 提供方，可选 }
+    example:
+      code: 0
+      msg: ok
+      data:
+        - bucket: "2025-11-17"
+          calls: 42
+          avg_ms: 12.5
+          min_ms: 4.2
+          max_ms: 25.7
+request:
+  query:
+    period: { type: string, required: false, desc: 聚合周期(daily|monthly), constraints: { enum: "daily,monthly" } }
+    tenant_id: { type: int, required: false, desc: 租户ID过滤 }
+    endpoint: { type: string, required: false, desc: 接口过滤 }
+    rangeStart: { type: string, required: false, desc: 开始日期YYYY-MM-DD, constraints: { format: date } }
+    rangeEnd: { type: string, required: false, desc: 结束日期YYYY-MM-DD, constraints: { format: date } }
+    groupBy: { type: string, required: false, desc: 分组维度(tenant|endpoint|provider), constraints: { enum: "tenant,endpoint,provider" } }
+steps:
+  - validate: { target: rangeStart, regex: "^\\d{4}-\\d{2}-\\d{2}$", required: false }
+  - validate: { target: rangeEnd,   regex: "^\\d{4}-\\d{2}-\\d{2}$", required: false }
+  - branch:
+      if: "{{ eq groupBy tenant }}"
+      then:
+        - sql.query:
+            ds: main
+            sql: "SELECT IF(?='monthly', DATE_FORMAT(ts,'%Y-%m'), DATE_FORMAT(ts,'%Y-%m-%d')) AS bucket, tenant_id, COUNT(1) AS calls, AVG(duration_ms) AS avg_ms, MIN(duration_ms) AS min_ms, MAX(duration_ms) AS max_ms FROM usage_logs WHERE (?='' OR endpoint = ?) AND (?='' OR DATE(ts) BETWEEN ? AND ?) GROUP BY bucket, tenant_id ORDER BY bucket DESC LIMIT 62"
+            params:
+              period: "{{ period }}"
+              endpoint: "{{ endpoint }}"
+              hasRange: "{{ rangeStart }}"
+              start: "{{ rangeStart }}"
+              end: "{{ rangeEnd }}"
+            order: [period, endpoint, endpoint, hasRange, start, end]
+            out: rows
+      else:
+        - branch:
+            if: "{{ eq groupBy endpoint }}"
+            then:
+              - sql.query:
+                  ds: main
+                  sql: "SELECT IF(?='monthly', DATE_FORMAT(ts,'%Y-%m'), DATE_FORMAT(ts,'%Y-%m-%d')) AS bucket, endpoint, COUNT(1) AS calls, AVG(duration_ms) AS avg_ms, MIN(duration_ms) AS min_ms, MAX(duration_ms) AS max_ms FROM usage_logs WHERE (?=0 OR tenant_id=?) AND (?='' OR DATE(ts) BETWEEN ? AND ?) GROUP BY bucket, endpoint ORDER BY bucket DESC LIMIT 62"
+                  params:
+                    period: "{{ period }}"
+                    tenant_id: "{{ tenant_id }}"
+                    hasRange: "{{ rangeStart }}"
+                    start: "{{ rangeStart }}"
+                    end: "{{ rangeEnd }}"
+                  order: [period, tenant_id, tenant_id, hasRange, start, end]
+                  out: rows
+            else:
+              - branch:
+                  if: "{{ eq groupBy provider }}"
+                  then:
+                    - sql.query:
+                        ds: main
+                        sql: "SELECT IF(?='monthly', DATE_FORMAT(ts,'%Y-%m'), DATE_FORMAT(ts,'%Y-%m-%d')) AS bucket, provider, COUNT(1) AS calls, AVG(duration_ms) AS avg_ms, MIN(duration_ms) AS min_ms, MAX(duration_ms) AS max_ms FROM usage_logs WHERE (?=0 OR tenant_id=?) AND (?='' OR DATE(ts) BETWEEN ? AND ?) GROUP BY bucket, provider ORDER BY bucket DESC LIMIT 62"
+                        params:
+                          period: "{{ period }}"
+                          tenant_id: "{{ tenant_id }}"
+                          hasRange: "{{ rangeStart }}"
+                          start: "{{ rangeStart }}"
+                          end: "{{ rangeEnd }}"
+                        order: [period, tenant_id, tenant_id, hasRange, start, end]
+                        out: rows
+                  else:
+                    - sql.query:
+                        ds: main
+                        sql: "SELECT IF(?='monthly', DATE_FORMAT(ts,'%Y-%m'), DATE_FORMAT(ts,'%Y-%m-%d')) AS bucket, COUNT(1) AS calls, AVG(duration_ms) AS avg_ms, MIN(duration_ms) AS min_ms, MAX(duration_ms) AS max_ms FROM usage_logs WHERE (?=0 OR tenant_id=?) AND (?='' OR endpoint = ?) AND (?='' OR DATE(ts) BETWEEN ? AND ?) GROUP BY bucket ORDER BY bucket DESC LIMIT 62"
+                        params:
+                          period: "{{ period }}"
+                          tenant_id: "{{ tenant_id }}"
+                          endpoint: "{{ endpoint }}"
+                          hasRange: "{{ rangeStart }}"
+                          start: "{{ rangeStart }}"
+                          end: "{{ rangeEnd }}"
+                        order: [period, tenant_id, tenant_id, endpoint, endpoint, hasRange, start, end]
+                        out: rows
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ rows }}" }
+      body: "{{ rows }}"

@@ -1,0 +1,39 @@
+module: admin
+endpoint: subscriptions_cancel
+method: POST
+path: /api/admin/subscriptions/cancel
+auth: jwt
+roles: [admin]
+permissions: [admin.subscriptions.cancel]
+docs:
+  title: 取消订阅
+  response:
+    description: 返回取消订阅的租户ID与状态
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            tenant_id: { type: int, description: 租户ID }
+            status: { type: string, description: 订阅状态 }
+    example:
+      code: 0
+      msg: ok
+      data: { tenant_id: 8, status: canceled }
+request:
+  body:
+    tenant_id: { type: int, required: true }
+steps:
+  - sql.exec:
+      ds: main
+      sql: "UPDATE subscriptions SET status='canceled' WHERE tenant_id=?"
+      params:
+        tenant_id: "{{ tenant_id }}"
+      order: [tenant_id]
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { tenant_id: "{{ tenant_id }}" } }
+      body: { tenant_id: "{{ tenant_id }}" }

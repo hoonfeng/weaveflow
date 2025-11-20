@@ -1,0 +1,13 @@
+:root{--bg:#0b1020;--fg:#e6e8ee;--primary:#3b82f6;--accent:#8b5cf6;--muted:#94a3b8}
+html,body,#app{height:100%}
+body{margin:0;background:radial-gradient(1200px 600px at 10% 10%, #111827 0%, #0b1020 40%),linear-gradient(120deg,#0b1020,#0f172a);color:var(--fg)}
+.glass{backdrop-filter: blur(10px);background: rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);border-radius:16px}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:12px;background:linear-gradient(135deg,var(--primary),var(--accent));color:#fff;border:none;cursor:pointer;transition:transform .15s ease, box-shadow .2s ease}
+.btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(59,130,246,.35)}
+.link{color:var(--primary);text-decoration:none}
+.link:hover{text-decoration:underline}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+.card{padding:16px;border-radius:16px;background:rgba(17,24,39,.6);border:1px solid rgba(255,255,255,.08);transition:transform .2s ease, box-shadow .2s ease}
+.card:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.fade-enter-active,.fade-leave-active{transition:opacity .25s ease}
+.fade-enter-from,.fade-leave-to{opacity:0}

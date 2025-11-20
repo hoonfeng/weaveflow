@@ -1,0 +1,118 @@
+module: usage
+endpoint: export_csv
+method: GET
+path: /api/usage/export.csv
+auth: jwt
+roles: [admin]
+docs:
+  title: 用量导出CSV
+request:
+  query:
+    period: { type: string, required: false }
+    tenant_id: { type: int, required: false }
+    endpoint: { type: string, required: false }
+    rangeStart: { type: string, required: false }
+    rangeEnd: { type: string, required: false }
+    groupBy: { type: string, required: false }
+steps:
+  - branch:
+      if: "{{ eq groupBy tenant }}"
+      then:
+        - sql.query:
+            ds: main
+            sql: "SELECT IF(?='monthly', DATE_FORMAT(ts,'%Y-%m'), DATE_FORMAT(ts,'%Y-%m-%d')) AS bucket, tenant_id, COUNT(1) AS calls, AVG(duration_ms) AS avg_ms FROM usage_logs WHERE (?='' OR endpoint = ?) AND (?='' OR DATE(ts) BETWEEN ? AND ?) GROUP BY bucket, tenant_id ORDER BY bucket DESC LIMIT 62"
+            params:
+              period: "{{ period }}"
+              endpoint: "{{ endpoint }}"
+              hasRange: "{{ rangeStart }}"
+              start: "{{ rangeStart }}"
+              end: "{{ rangeEnd }}"
+            order: [period, endpoint, endpoint, hasRange, start, end]
+            out: rows
+        - transform:
+            mapping:
+              csv: "bucket,tenant_id,calls,avg_ms,min_ms,max_ms"
+        - loop:
+            items: "{{ rows }}"
+            var: item
+            do:
+              - transform:
+                  mapping:
+                    csv: "{{ csv }}\n{{ item.bucket }},{{ item.tenant_id }},{{ item.calls }},{{ item.avg_ms }},{{ item.min_ms }},{{ item.max_ms }}"
+      else:
+        - branch:
+            if: "{{ eq groupBy endpoint }}"
+            then:
+              - sql.query:
+                  ds: main
+                  sql: "SELECT IF(?='monthly', DATE_FORMAT(ts,'%Y-%m'), DATE_FORMAT(ts,'%Y-%m-%d')) AS bucket, endpoint, COUNT(1) AS calls, AVG(duration_ms) AS avg_ms FROM usage_logs WHERE (?=0 OR tenant_id=?) AND (?='' OR DATE(ts) BETWEEN ? AND ?) GROUP BY bucket, endpoint ORDER BY bucket DESC LIMIT 62"
+                  params:
+                    period: "{{ period }}"
+                    tenant_id: "{{ tenant_id }}"
+                    hasRange: "{{ rangeStart }}"
+                    start: "{{ rangeStart }}"
+                    end: "{{ rangeEnd }}"
+                  order: [period, tenant_id, tenant_id, hasRange, start, end]
+                  out: rows
+              - transform:
+                  mapping:
+                    csv: "bucket,endpoint,calls,avg_ms,min_ms,max_ms"
+              - loop:
+                  items: "{{ rows }}"
+                  var: item
+                  do:
+                    - transform:
+                        mapping:
+                          csv: "{{ csv }}\n{{ item.bucket }},{{ item.endpoint }},{{ item.calls }},{{ item.avg_ms }},{{ item.min_ms }},{{ item.max_ms }}"
+            else:
+              - branch:
+                  if: "{{ eq groupBy provider }}"
+                  then:
+                    - sql.query:
+                        ds: main
+                        sql: "SELECT IF(?='monthly', DATE_FORMAT(ts,'%Y-%m'), DATE_FORMAT(ts,'%Y-%m-%d')) AS bucket, provider, COUNT(1) AS calls, AVG(duration_ms) AS avg_ms FROM usage_logs WHERE (?=0 OR tenant_id=?) AND (?='' OR DATE(ts) BETWEEN ? AND ?) GROUP BY bucket, provider ORDER BY bucket DESC LIMIT 62"
+                        params:
+                          period: "{{ period }}"
+                          tenant_id: "{{ tenant_id }}"
+                          hasRange: "{{ rangeStart }}"
+                          start: "{{ rangeStart }}"
+                          end: "{{ rangeEnd }}"
+                        order: [period, tenant_id, tenant_id, hasRange, start, end]
+                        out: rows
+                    - transform:
+                        mapping:
+                          csv: "bucket,provider,calls,avg_ms,min_ms,max_ms"
+                    - loop:
+                        items: "{{ rows }}"
+                        var: item
+                        do:
+                          - transform:
+                              mapping:
+                                csv: "{{ csv }}\n{{ item.bucket }},{{ item.provider }},{{ item.calls }},{{ item.avg_ms }},{{ item.min_ms }},{{ item.max_ms }}"
+                  else:
+                    - sql.query:
+                        ds: main
+                        sql: "SELECT IF(?='monthly', DATE_FORMAT(ts,'%Y-%m'), DATE_FORMAT(ts,'%Y-%m-%d')) AS bucket, COUNT(1) AS calls, AVG(duration_ms) AS avg_ms FROM usage_logs WHERE (?=0 OR tenant_id=?) AND (?='' OR endpoint = ?) AND (?='' OR DATE(ts) BETWEEN ? AND ?) GROUP BY bucket ORDER BY bucket DESC LIMIT 62"
+                        params:
+                          period: "{{ period }}"
+                          tenant_id: "{{ tenant_id }}"
+                          endpoint: "{{ endpoint }}"
+                          hasRange: "{{ rangeStart }}"
+                          start: "{{ rangeStart }}"
+                          end: "{{ rangeEnd }}"
+                        order: [period, tenant_id, tenant_id, endpoint, endpoint, hasRange, start, end]
+                        out: rows
+                    - transform:
+                        mapping:
+                          csv: "bucket,calls,avg_ms,min_ms,max_ms"
+                    - loop:
+                        items: "{{ rows }}"
+                        var: item
+                        do:
+                          - transform:
+                              mapping:
+                                csv: "{{ csv }}\n{{ item.bucket }},{{ item.calls }},{{ item.avg_ms }},{{ item.min_ms }},{{ item.max_ms }}"
+  - response:
+      status: 200
+      headers: { Content-Type: text/csv }
+      body: "{{ csv }}"

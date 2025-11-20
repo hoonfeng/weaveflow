@@ -1,0 +1,38 @@
+module: admin
+endpoint: permissions_update
+method: PUT
+path: /api/admin/permissions/{id}
+auth: jwt
+roles: [admin]
+permissions: [admin.permissions.update]
+docs:
+  title: 更新权限
+  response:
+    description: 返回更新的权限ID
+    schema:
+      type: object
+      props:
+        id: { type: int }
+    example:
+      code: 0
+      msg: ok
+      data: { id: 12 }
+request:
+  body:
+    code: { type: string, required: false, desc: 权限代码 }
+    name: { type: string, required: false, desc: 权限名称 }
+    description: { type: string, required: false, desc: 描述 }
+steps:
+  - sql.exec:
+      ds: main
+      sql: "UPDATE permissions SET code=COALESCE(?,code), name=COALESCE(?,name), description=COALESCE(?,description) WHERE id=?"
+      params:
+        code: "{{ code }}"
+        name: "{{ name }}"
+        description: "{{ description }}"
+        id: "{{ id }}"
+      order: [code, name, description, id]
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { id: "{{ id }}" } }
+      body: { id: "{{ id }}" }

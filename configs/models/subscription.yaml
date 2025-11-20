@@ -1,0 +1,14 @@
+table: subscriptions
+columns:
+  id: { type: BIGINT, pk: true, auto: true }
+  tenant_id: { type: BIGINT, notNull: true }
+  plan_id: { type: BIGINT, notNull: true }
+  status: { type: VARCHAR(32), notNull: true }
+  start_at: { type: TIMESTAMP, default: CURRENT_TIMESTAMP }
+  end_at: { type: TIMESTAMP }
+  next_billing_at: { type: TIMESTAMP }
+indexes:
+  - name: idx_subs_tenant
+    columns: [tenant_id]
+  - name: idx_subs_plan
+    columns: [plan_id]

@@ -1,0 +1,123 @@
+server:
+  port: 8081
+  timeout: 3s
+  maxUploadSize: 32MB
+  autoReload: true
+docs:
+  enabled: true
+  title: 接口文档
+  basePath: /docs
+cors:
+  enabled: true
+  allowedOrigins: ["*"]
+  allowedMethods: ["GET","POST","PUT","DELETE"]
+  allowedHeaders: ["*"]
+rateLimit:
+  enabled: false
+  rps: 50
+  burst: 100
+  perIp: true
+datasources:
+  sql:
+    main:
+      driver: mysql
+      dsn: ${DB_DSN:}
+      maxOpenConns: 10
+      maxIdleConns: 5
+  cache:
+    default:
+      policy: ttl
+      capacity: 10000
+      defaultTTL: 60s
+  blob:
+    local:
+      type: local
+      basePath: ./storage
+  vector:
+    mem:
+      type: memory
+security:
+  authType: jwt
+  jwtSecret: devsecret
+init:
+  enabled: true
+  ensureAdminUser: true
+  ensureAdminRoleBinding: true
+  scripts:
+    - configs/init/minimal.yaml
+plugins:
+  enabled: true
+  runtime: goproc
+  instancesDefault: 2
+  registry:
+    - name: string_tools
+      executable:
+        windows: ./plugins/string_reverse.exe
+        unix: ./plugins/string_reverse
+      instances: 2
+      timeout: 300ms
+      queueSize: 1024
+      functions: ["reverse"]
+    - name: auth
+      executable:
+        windows: ./plugins/auth.exe
+        unix: ./plugins/auth
+      instances: 2
+      timeout: 300ms
+      queueSize: 1024
+      functions: ["apikey"]
+    - name: sig
+      executable:
+        windows: ./plugins/sig.exe
+        unix: ./plugins/sig
+      instances: 2
+      timeout: 300ms
+      queueSize: 1024
+      functions: ["hmac"]
+    - name: quota
+      executable:
+        windows: ./plugins/quota.exe
+        unix: ./plugins/quota
+      instances: 2
+      timeout: 300ms
+      queueSize: 1024
+      functions: ["monthly"]
+    - name: metrics
+      executable:
+        windows: ./plugins/metrics.exe
+        unix: ./plugins/metrics
+      instances: 2
+      timeout: 300ms
+      queueSize: 1024
+      functions: ["record"]
+    - name: algo
+      executable:
+        windows: ./plugins/algo.exe
+        unix: ./plugins/algo
+      instances: 2
+      timeout: 300ms
+      queueSize: 1024
+      functions: ["hash","hmac","random","pbkdf2","aes_encrypt","aes_decrypt"]
+    - name: pay
+      executable:
+        windows: ./plugins/pay_new.exe
+        unix: ./plugins/pay
+      instances: 2
+      timeout: 500ms
+      queueSize: 1024
+      functions: ["create", "alipay_create", "wechat_create", "alipay_verify", "wechat_verify", "alipay_refund", "wechat_refund"]
+    - name: sysinfo
+      executable:
+        windows: ./plugins/sysinfo.exe
+        unix: ./plugins/sysinfo
+      instances: 1
+      timeout: 300ms
+      queueSize: 256
+      functions: ["resources"]
+static:
+  enabled: true
+  items:
+    - route: /ui
+      dir: webui/minimal
+      spa: true
+      index: index.html

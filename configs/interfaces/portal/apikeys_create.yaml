@@ -1,0 +1,46 @@
+module: portal
+endpoint: apikeys_create
+method: POST
+path: /api/portal/apikeys
+permissions: [portal.apikeys.create]
+docs:
+  title: 创建 API Key
+  response:
+    description: 返回创建的明文 key 与 secret
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            id: { type: int }
+            key: { type: string }
+            secret: { type: string }
+request:
+  body:
+    name: { type: string, required: true }
+    scopes: { type: string, required: false }
+    expired_at: { type: string, required: false }
+steps:
+  - validate: { target: header.X-Tenant-Id, required: true }
+  - transform:
+      mapping:
+        raw_key: "{{ uuid }}"
+        raw_secret: "{{ uuid }}"
+        key_hash: "{{ sha256 raw_key }}"
+  - sql.exec:
+      ds: main
+      sql: "INSERT INTO api_keys(tenant_id,name,key_hash,secret,scopes,expired_at,status) VALUES(?,?,?,?,?,?,?)"
+      params: { tenant_id: "{{ header.X-Tenant-Id }}", name: "{{ name }}", key_hash: "{{ key_hash }}", secret: "{{ raw_secret }}", scopes: "{{ scopes }}", expired_at: "{{ expired_at }}", status: active }
+      order: [tenant_id, name, key_hash, secret, scopes, expired_at, status]
+  - sql.query:
+      ds: main
+      sql: "SELECT LAST_INSERT_ID() AS id"
+      params: {}
+      out: idrow
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { id: "{{ toint idrow.0.id }}", key: "{{ raw_key }}", secret: "{{ raw_secret }}" } }
+      body: { id: "{{ toint idrow.0.id }}", key: "{{ raw_key }}", secret: "{{ raw_secret }}" }

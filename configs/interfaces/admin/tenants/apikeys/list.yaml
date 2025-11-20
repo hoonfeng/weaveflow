@@ -1,0 +1,44 @@
+module: admin
+endpoint: tenant_apikeys_list
+method: GET
+path: /api/admin/tenants/{id}/apikeys
+auth: jwt
+roles: [admin]
+permissions: [admin.apikeys.list]
+docs:
+  title: 租户API Key列表
+  response:
+    description: 返回租户的 API Key
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: array
+          props:
+            item:
+              type: object
+              props:
+                id: { type: int }
+                name: { type: string }
+                status: { type: string }
+                expired_at: { type: string }
+                scopes: { type: string }
+                created_at: { type: string }
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT id, name, status, expired_at, scopes, created_at FROM api_keys WHERE tenant_id=? ORDER BY id DESC"
+      params: { tenant_id: "{{ id }}" }
+      order: [tenant_id]
+      out: rows
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ rows }}" }
+      body: "{{ rows }}"
+    example:
+      code: 0
+      msg: ok
+      data:
+        - { id: 1, name: default, status: active, expired_at: null, scopes: "read,write", created_at: "2025-11-01" }

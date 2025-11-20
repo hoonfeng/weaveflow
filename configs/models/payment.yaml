@@ -1,0 +1,12 @@
+table: payments
+columns:
+  id: { type: BIGINT, pk: true, auto: true }
+  order_no: { type: VARCHAR(64), notNull: true }
+  provider: { type: VARCHAR(32), notNull: true }
+  status: { type: VARCHAR(32), notNull: true }
+  txn_id: { type: VARCHAR(128) }
+  raw: { type: TEXT }
+  created_at: { type: TIMESTAMP, default: CURRENT_TIMESTAMP }
+indexes:
+  - name: idx_payments_order
+    columns: [order_no]

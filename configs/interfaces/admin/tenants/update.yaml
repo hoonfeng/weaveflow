@@ -1,0 +1,43 @@
+module: admin
+endpoint: tenants_update
+method: PUT
+path: /api/admin/tenants/{id}
+auth: jwt
+roles: [admin]
+permissions: [admin.tenants.update]
+docs:
+  title: 更新租户
+  response:
+    description: 返回更新的租户ID
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            id: { type: integer, description: 租户ID }
+request:
+  body:
+    name: { type: string, required: false, desc: 租户名称, constraints: { minLen: "2", regex: "^[a-z][a-z0-9-]*$" } }
+    domain: { type: string, required: false, desc: 域名 }
+    contact_email: { type: string, required: false, desc: 联系邮箱, constraints: { format: email } }
+    description: { type: string, required: false, desc: 描述 }
+    status: { type: string, required: false, desc: 状态 }
+steps:
+  - sql.exec:
+      ds: main
+      sql: "UPDATE tenants SET name=COALESCE(?,name), domain=COALESCE(?,domain), contact_email=COALESCE(?,contact_email), description=COALESCE(?,description), status=COALESCE(?,status) WHERE id=?"
+      params:
+        name: "{{ name }}"
+        domain: "{{ domain }}"
+        contact_email: "{{ contact_email }}"
+        description: "{{ description }}"
+        status: "{{ status }}"
+        id: "{{ id }}"
+      order: [name, domain, contact_email, description, status, id]
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { id: "{{ id }}" } }
+      body: { id: "{{ id }}" }

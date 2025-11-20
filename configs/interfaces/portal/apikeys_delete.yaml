@@ -1,0 +1,26 @@
+module: portal
+endpoint: apikeys_delete
+method: DELETE
+path: /api/portal/apikeys/{id}
+permissions: [portal.apikeys.delete]
+docs:
+  title: 删除 API Key
+  response:
+    description: 返回删除结果
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data: { type: object }
+steps:
+  - validate: { target: header.X-Tenant-Id, required: true }
+  - sql.exec:
+      ds: main
+      sql: "DELETE FROM api_keys WHERE id=? AND tenant_id=?"
+      params: { id: "{{ id }}", tenant_id: "{{ header.X-Tenant-Id }}" }
+      order: [id, tenant_id]
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: {} }
+      body: {}

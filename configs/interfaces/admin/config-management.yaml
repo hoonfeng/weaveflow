@@ -1,0 +1,33 @@
+# 配置管理API配置
+
+# 获取系统配置
+module: admin
+endpoint: config_get
+method: GET
+path: /api/admin/config
+auth: jwt
+roles: [admin]
+permissions: [config.read]
+docs:
+  title: 获取系统配置
+  description: 获取系统配置信息
+  response:
+    description: 返回系统配置信息
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data: { type: object }
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT * FROM system_config WHERE status = 'active'"
+      out: configs
+  - transform:
+      mapping:
+        config_map: "{{ configs | toObject('key', 'value') }}"
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ config_map }}" }
+      body: "{{ config_map }}"

@@ -1,0 +1,42 @@
+module: admin
+endpoint: plans_create
+method: POST
+path: /api/admin/plans
+auth: jwt
+roles: [admin]
+docs:
+  title: 创建套餐
+  response:
+    description: 返回创建的套餐名与价格
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            name: { type: string }
+            monthly_quota: { type: int }
+            price: { type: number }
+request:
+  body:
+    name: { type: string, required: true }
+    monthly_quota: { type: int, required: false }
+    price: { type: number, required: true }
+steps:
+  - transform:
+      mapping:
+        monthly_quota_var: "{{ or monthly_quota 0 }}"
+  - sql.exec:
+      ds: main
+      sql: "INSERT INTO plans(name,monthly_quota,price) VALUES(?,?,?)"
+      params:
+        name: "{{ name }}"
+        monthly_quota: "{{ monthly_quota_var }}"
+        price: "{{ price }}"
+      order: [name, monthly_quota, price]
+  - response:
+      status: 201
+      wrap: { code: 0, msg: ok, data: { name: "{{ name }}" } }
+      body: { name: "{{ name }}" }

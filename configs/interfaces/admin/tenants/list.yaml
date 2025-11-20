@@ -1,0 +1,42 @@
+module: admin
+endpoint: tenants_list
+method: GET
+path: /api/admin/tenants
+auth: jwt
+roles: [admin]
+permissions: [admin.tenants.list]
+docs:
+  title: 租户列表
+  description: 分页返回租户列表（示例为全部返回）
+  response:
+    description: 返回租户列表
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: array
+          props:
+            item:
+              type: object
+              props:
+                id: { type: integer, description: 租户ID }
+                name: { type: string, description: 租户名 }
+                status: { type: string, description: 状态 }
+                created_at: { type: string, description: 创建时间 }
+    example:
+      code: 0
+      msg: ok
+      data:
+        - { id: 12, name: acme, status: active, created_at: "2025-11-01T10:00:00Z" }
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT id,name,status,created_at FROM tenants ORDER BY id DESC"
+      params: {}
+      out: rows
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ rows }}" }
+      body: "{{ rows }}"

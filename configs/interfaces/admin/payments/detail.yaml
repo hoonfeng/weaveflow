@@ -1,0 +1,44 @@
+module: admin
+endpoint: payments_detail
+method: GET
+path: /api/admin/payments/{txn_id}
+auth: jwt
+roles: [admin]
+permissions: [admin.payments.detail]
+docs:
+  title: 支付记录详情
+  response:
+    description: 返回支付详情记录
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: array
+          props:
+            item:
+              type: object
+              props:
+                txn_id: { type: string }
+                order_no: { type: string }
+                provider: { type: string }
+                status: { type: string }
+                ts: { type: string }
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT order_no, provider, status, txn_id, ts FROM payments WHERE txn_id=? LIMIT 1"
+      params:
+        txn_id: "{{ txn_id }}"
+      order: [txn_id]
+      out: rows
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ rows }}" }
+      body: "{{ rows }}"
+    example:
+      code: 0
+      msg: ok
+      data:
+        - { txn_id: "tx_001", order_no: "ord_001", provider: "alipay", status: "succeeded", ts: "2025-11-01T10:00:00Z" }

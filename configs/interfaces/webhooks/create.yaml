@@ -1,0 +1,47 @@
+module: webhooks
+endpoint: create
+method: POST
+path: /api/webhooks
+auth: jwt
+roles: ["admin"]
+docs:
+  title: 创建Webhook端点
+  response:
+    description: 返回创建的端点ID与URL
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            id: { type: integer, description: 端点ID }
+            url: { type: string, description: 回调URL }
+    example:
+      code: 0
+      msg: ok
+      data:
+        id: 3
+        url: "https://example.com/callback"
+  errors:
+    - { code: E_ENDPOINT_EXISTS, message: 端点已存在, description: URL 重复 }
+  description: 为租户添加Webhook接收地址
+request:
+  body:
+    tenant_id: { type: int, required: true, desc: 租户ID }
+    url: { type: string, required: true, desc: 回调地址, constraints: { format: url } }
+    secret: { type: string, required: false, desc: 签名密钥 }
+steps:
+  - sql.exec:
+      ds: main
+      sql: "INSERT INTO webhook_endpoints(tenant_id, url, secret) VALUES(?,?,?)"
+      params:
+        tenant_id: "{{ tenant_id }}"
+        url: "{{ url }}"
+        secret: "{{ secret }}"
+      order: [tenant_id, url, secret]
+  - response:
+      status: 201
+      wrap: { code: 0, msg: ok, data: { tenant_id: "{{ tenant_id }}" } }
+      body: { tenant_id: "{{ tenant_id }}" }

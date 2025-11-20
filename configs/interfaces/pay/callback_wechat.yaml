@@ -1,0 +1,68 @@
+module: pay
+endpoint: callback_wechat
+method: POST
+path: /api/pay/callback/wechat
+docs:
+  title: 支付回调（微信）
+  response:
+    description: 返回订单号与支付状态
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            order_no: { type: string }
+            status: { type: string }
+    example:
+      code: 0
+      msg: ok
+      data: { order_no: "ORD20251117001", status: "paid" }
+request:
+  body:
+    order_no: { type: string, required: true }
+    status: { type: string, required: true, constraints: { enum: "succeeded,failed" } }
+    txn_id: { type: string, required: false }
+    sig: { type: string, required: true }
+    amount: { type: string, required: false }
+    currency: { type: string, required: false }
+steps:
+  - plugin.call:
+      plugin: pay
+      function: wechat_verify
+      params:
+        order_no: "{{ order_no }}"
+        status: "{{ status }}"
+        txn_id: "{{ txn_id }}"
+        timestamp: "{{ header.Wechatpay-Timestamp }}"
+        nonce: "{{ header.Wechatpay-Nonce }}"
+        signature: "{{ header.Wechatpay-Signature }}"
+        payload: "{{ json_encode body }}"
+      out: v
+  - sql.exec:
+      ds: main
+      sql: "UPDATE orders SET status = ? WHERE order_no = ? AND ( ? = '' OR CAST(amount AS DECIMAL(18,2)) = CAST(? AS DECIMAL(18,2)) ) AND ( ? = '' OR currency = ? )"
+      params:
+        status: "{{ status }}"
+        order_no: "{{ order_no }}"
+        amount1: "{{ amount }}"
+        amount2: "{{ amount }}"
+        currency1: "{{ currency }}"
+        currency2: "{{ currency }}"
+      order: [status, order_no, amount1, amount2, currency1, currency2]
+  - sql.exec:
+      ds: main
+      sql: "INSERT INTO payments(order_no, provider, status, txn_id) SELECT ?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM payments WHERE txn_id=?)"
+      params:
+        order_no: "{{ order_no }}"
+        provider: "wechat"
+        status: "{{ status }}"
+        txn_id: "{{ txn_id }}"
+        txn_id2: "{{ txn_id }}"
+      order: [order_no, provider, status, txn_id, txn_id2]
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { order_no: "{{ order_no }}", status: "{{ status }}" } }
+      body: { order_no: "{{ order_no }}", status: "{{ status }}" }

@@ -1,0 +1,38 @@
+module: admin
+endpoint: users_detail
+method: GET
+path: /api/admin/users/{id}
+auth: jwt
+roles: [admin]
+permissions: [admin.users.detail]
+docs:
+  title: 用户详情
+  response:
+    description: 返回单个用户详情
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            id: { type: int }
+            username: { type: string }
+            email: { type: string }
+            created_at: { type: string }
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT id, username, email, created_at FROM users WHERE id=? LIMIT 1"
+      params:
+        id: "{{ id }}"
+      order: [id]
+      out: rows
+  - transform:
+      mapping:
+        item: "{{ or rows.0 {} }}"
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ item }}" }
+      body: "{{ item }}"

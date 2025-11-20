@@ -1,0 +1,47 @@
+module: admin
+endpoint: apikeys_rotate
+method: POST
+path: /api/admin/apikeys/rotate
+auth: jwt
+roles: [admin]
+permissions: [admin.apikeys.rotate]
+docs:
+  title: API Key 轮换
+  response:
+    description: 返回新 Key 与 Secret
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            key: { type: string }
+            secret: { type: string }
+    example:
+      code: 0
+      msg: ok
+      data: { key: "ak_new", secret: "sec_new" }
+request:
+  body:
+    tenant_id: { type: int, required: true }
+    name: { type: string, required: true }
+steps:
+  - transform:
+      mapping:
+        new_key: "{{ uuid }}"
+        new_secret: "{{ uuid }}"
+  - sql.exec:
+      ds: main
+      sql: "UPDATE api_keys SET key_hash=SHA2(?,256), secret=? WHERE tenant_id=? AND name=?"
+      params:
+        key_hash: "{{ new_key }}"
+        secret: "{{ new_secret }}"
+        tenant_id: "{{ tenant_id }}"
+        name: "{{ name }}"
+      order: [key_hash, secret, tenant_id, name]
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { key: "{{ new_key }}", secret: "{{ new_secret }}" } }
+      body: { key: "{{ new_key }}", secret: "{{ new_secret }}" }

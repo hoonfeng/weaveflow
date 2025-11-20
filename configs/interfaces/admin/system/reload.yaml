@@ -1,0 +1,37 @@
+module: admin
+endpoint: reload
+method: POST
+path: /api/admin/reload
+auth: jwt
+roles: [admin]
+permissions: [admin.reload]
+docs:
+  title: 重载配置
+  description: 重新加载项目与接口配置并返回差异
+  response:
+    description: 返回重载差异
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            added: { type: array, description: 新增端点 }
+            removed: { type: array, description: 移除端点 }
+            updated: { type: array, description: 更新端点 }
+    example:
+      code: 0
+      msg: ok
+      data:
+        added: ["/api/admin/plans"]
+        removed: []
+        updated: ["/api/admin/health"]
+steps:
+  - admin.reload:
+      out: diff
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ diff }}" }
+      body: "{{ diff }}"

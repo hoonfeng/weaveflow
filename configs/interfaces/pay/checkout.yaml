@@ -1,0 +1,93 @@
+module: pay
+endpoint: checkout
+method: POST
+path: /api/pay/checkout
+auth: jwt
+roles: ["admin"]
+docs:
+  title: 创建订单
+  description: 为租户创建支付订单
+  response:
+    description: 返回创建的订单号与支付链接
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            order_no: { type: string, description: 订单号 }
+            pay_url: { type: string, description: 支付跳转链接 }
+    example:
+      code: 0
+      msg: ok
+      data:
+        order_no: "ORD20251117001"
+        pay_url: "https://pay.example.com/ORD20251117001"
+  errors:
+    - { code: E_PROVIDER_UNSUPPORTED, message: 不支持的支付渠道, description: 请选择 alipay/wechat/stripe }
+    - { code: E_AMOUNT_INVALID, message: 金额不合法, description: 金额必须大于0 }
+request:
+  body:
+    tenant_id: { type: int, required: true, desc: 租户ID }
+    amount: { type: float, required: true, desc: 金额, constraints: { min: "0.01" } }
+    currency: { type: string, required: false, desc: 货币, constraints: { enum: "CNY,USD,EUR" } }
+    provider: { type: string, required: true, desc: 支付渠道, constraints: { enum: "alipay,wechat,stripe" } }
+steps:
+  - validate: { target: tenant_id, required: true }
+  - transform:
+      mapping:
+        order_no: "{{ uuid tenant_id }}"
+        currency2: "{{ currency }}"
+  - branch:
+      if: "{{ eq provider alipay }}"
+      then:
+        - plugin.call:
+            plugin: pay
+            function: alipay_create
+            params:
+              order_no: "{{ order_no }}"
+              amount: "{{ amount }}"
+              currency: "{{ currency2 }}"
+              subject: "{{ order_no }}"
+            out: payres
+      else:
+        - branch:
+            if: "{{ eq provider wechat }}"
+            then:
+              - plugin.call:
+                  plugin: pay
+                  function: wechat_create
+                  params:
+                    order_no: "{{ order_no }}"
+                    amount: "{{ amount }}"
+                    currency: "{{ currency2 }}"
+                    description: "{{ order_no }}"
+                    notify_url: "http://localhost:8081/api/pay/callback/wechat"
+                  out: payres
+            else:
+              - plugin.call:
+                  plugin: pay
+                  function: create
+                  params:
+                    order_no: "{{ order_no }}"
+                    amount: "{{ amount }}"
+                    currency: "{{ currency2 }}"
+                    provider: "{{ provider }}"
+                  out: payres
+  - sql.exec:
+      ds: main
+      sql: "INSERT INTO orders(order_no, tenant_id, amount, currency, provider, status) VALUES(?,?,?,?,?,?)"
+      params:
+        order_no: "{{ payres.order_no }}"
+        tenant_id: "{{ tenant_id }}"
+        amount: "{{ amount }}"
+        currency: "{{ currency2 }}"
+        provider: "{{ provider }}"
+        status: "pending"
+      order: [order_no, tenant_id, amount, currency, provider, status]
+  - response:
+      status: 201
+      wrap: { code: 0, msg: ok, data: { order_no: "{{ payres.order_no }}", pay_url: "{{ payres.pay_url }}" } }
+      body: { order_no: "{{ payres.order_no }}", pay_url: "{{ payres.pay_url }}" }

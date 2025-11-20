@@ -1,0 +1,6 @@
+table: permissions
+columns:
+  id: { type: BIGINT, pk: true, auto: true }
+  code: { type: VARCHAR(64), notNull: true, unique: true }
+  name: { type: VARCHAR(128), notNull: true }
+  description: { type: VARCHAR(256) }

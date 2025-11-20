@@ -1,0 +1,47 @@
+module: admin
+endpoint: tenant_limits_get
+method: GET
+path: /api/admin/tenant_limits
+auth: jwt
+roles: ["admin"]
+permissions: [admin.tenant_limits.get]
+docs:
+  title: 查询租户限流
+  description: 查询指定租户的限流设置
+  response:
+    description: 返回租户限流设置列表（通常为单条）
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: array
+          props:
+            item:
+              type: object
+              props:
+                tenant_id: { type: int, description: 租户ID }
+                rps: { type: number, description: 每秒请求限制 }
+                burst: { type: int, description: 突发容量 }
+                updated_at: { type: string, description: 更新时间 }
+request:
+  query:
+    tenant_id: { type: int, required: true, desc: 租户ID }
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT tenant_id,rps,burst,updated_at FROM tenant_limits WHERE tenant_id=?"
+      params:
+        tenant_id: "{{ tenant_id }}"
+      order: [tenant_id]
+      out: rows
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ rows }}" }
+      body: "{{ rows }}"
+    example:
+      code: 0
+      msg: ok
+      data:
+        - { tenant_id: 8, rps: 5.0, burst: 100, updated_at: "2025-11-01" }

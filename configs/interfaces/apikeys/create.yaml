@@ -1,0 +1,53 @@
+module: apikeys
+endpoint: create
+method: POST
+path: /api/apikeys
+auth: jwt
+roles: ["admin"]
+docs:
+  title: 创建API Key
+  description: 为指定租户生成API Key（只展示一次）
+  response:
+    description: 返回生成的 Key 与 Secret
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            key: { type: string, description: Key 前缀 ak_ }
+            secret: { type: string, description: Secret 仅展示一次 }
+    example:
+      code: 0
+      msg: ok
+      data:
+        key: "ak_123456"
+        secret: "s3cr3t"
+request:
+  body:
+    tenant_id: { type: int, required: true, desc: 租户ID }
+    name: { type: string, required: true, minLen: 1, desc: 名称 }
+steps:
+  - validate: { target: tenant_id, required: true }
+  - validate: { target: name, required: true }
+  - transform:
+      mapping:
+        raw: "{{ uuid tenant_id }}"
+        key: "ak_{{ raw }}"
+        secret: "{{ uuid name }}"
+        key_hash: "{{ sha256 key }}"
+  - sql.exec:
+      ds: main
+      sql: "INSERT INTO api_keys(tenant_id,name,key_hash,secret) VALUES(?,?,?,?)"
+      params:
+        tenant_id: "{{ tenant_id }}"
+        name: "{{ name }}"
+        key_hash: "{{ key_hash }}"
+        secret: "{{ secret }}"
+      order: [tenant_id, name, key_hash, secret]
+  - response:
+      status: 201
+      wrap: { code: 0, msg: ok, data: { key: "{{ key }}", secret: "{{ secret }}" } }
+      body: { key: "{{ key }}", secret: "{{ secret }}" }

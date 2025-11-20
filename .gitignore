@@ -1,0 +1,33 @@
+# Builds & binaries
+bin/
+server
+server.exe
+*.exe
+plugins/*.exe
+
+# Backups & temp
+backups/
+*.zip
+*.tmp
+
+# Runtime storage/uploads
+storage/
+
+# Frontend
+webui/**/dist/
+webui/**/node_modules/
+*.env.local
+*.local
+
+# Internal planning
+.trae/
+.codebuddy/
+
+# Generated docs (recreate via CI)
+docs/generated/openapi.*.json
+
+# OS/IDE
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/

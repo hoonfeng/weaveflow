@@ -1,0 +1,32 @@
+module: admin
+endpoint: pay_providers_list
+method: GET
+path: /api/admin/pay/providers
+auth: jwt
+roles: [admin]
+permissions: [admin.pay.providers.list]
+docs:
+  title: 支付通道列表
+  response:
+    description: 返回支付通道配置列表
+    schema:
+      type: array
+      props:
+        item:
+          type: object
+          props:
+            id: { type: int }
+            code: { type: string }
+            name: { type: string }
+            enabled: { type: bool }
+            config_json: { type: string }
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT id, code, name, enabled, config_json, updated_at FROM payment_providers ORDER BY id DESC"
+      params: {}
+      out: rows
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ rows }}" }
+      body: "{{ rows }}"

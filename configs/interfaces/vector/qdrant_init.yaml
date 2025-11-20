@@ -1,0 +1,40 @@
+module: vector
+endpoint: qdrant_init
+method: POST
+path: /api/vector/qdrant/init
+docs:
+  title: Qdrant 集合初始化
+  description: 创建集合（需配置 datasources.vector.qdrant）
+  response:
+    description: 返回集合创建状态
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            status: { type: string, description: 状态 }
+    example:
+      code: 0
+      msg: ok
+      data: { status: created }
+request:
+  body:
+    size: { type: int, required: true, desc: 向量维度 }
+    metric: { type: string, required: false, desc: 距离度量(Cosine|Euclid|Dot) }
+    collection: { type: string, required: true, desc: 集合名 }
+steps:
+  - vector.ensure:
+      ds: qdrant
+      collection: "{{ collection }}"
+      size: "{{ size }}"
+      metric: "{{ metric }}"
+  - response:
+      status: 200
+      wrap:
+        code: 0
+        msg: ok
+        data: { status: created }
+      body: { status: created }

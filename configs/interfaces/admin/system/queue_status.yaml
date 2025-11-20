@@ -1,0 +1,39 @@
+module: admin
+endpoint: queue_status
+method: GET
+path: /api/admin/queue/status
+auth: jwt
+roles: [admin]
+permissions: [admin.queue.status]
+docs:
+  title: 队列状态
+  response:
+    description: 返回队列运行状态
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            workers: { type: int, description: 工作线程数量 }
+            pending: { type: int, description: 等待任务数 }
+            running: { type: int, description: 运行中任务数 }
+    example:
+      code: 0
+      msg: ok
+      data:
+        - pending: 3
+          failed: 1
+          succeeded: 20
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT SUM(status='pending') AS pending, SUM(status='failed') AS failed, SUM(status='succeeded') AS succeeded FROM webhook_tasks"
+      params: {}
+      out: rows
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ rows }}" }
+      body: "{{ rows }}"

@@ -1,0 +1,35 @@
+module: admin
+endpoint: roles_delete
+method: DELETE
+path: /api/admin/roles/{id}
+auth: jwt
+roles: [admin]
+permissions: [admin.roles.delete]
+docs:
+  title: 删除角色
+  response:
+    description: 返回删除的角色ID
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            id: { type: integer, description: 角色ID }
+steps:
+  - sql.exec:
+      ds: main
+      sql: "DELETE FROM roles WHERE id=?"
+      params:
+        id: "{{ id }}"
+      order: [id]
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { id: "{{ id }}" } }
+      body: { id: "{{ id }}" }
+    example:
+      code: 0
+      msg: ok
+      data: { id: 3 }

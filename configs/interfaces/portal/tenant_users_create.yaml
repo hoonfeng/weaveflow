@@ -1,0 +1,65 @@
+module: portal
+endpoint: tenant_users_create
+method: POST
+path: /api/portal/users
+permissions: [portal.tenant_users.create]
+docs:
+  title: 创建子账户并绑定到租户
+  response:
+    description: 返回创建绑定后的用户ID
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            uid: { type: int }
+request:
+  body:
+    username: { type: string, required: true }
+    email: { type: string, required: true }
+    password: { type: string, required: true }
+    role: { type: string, required: true }
+steps:
+  - validate: { target: header.X-Tenant-Id, required: true }
+  - sql.query:
+      ds: main
+      sql: "SELECT id FROM users WHERE username=? LIMIT 1"
+      params: { username: "{{ username }}" }
+      order: [username]
+      out: urow
+  - branch:
+      if: "{{ gt (len urow) 0 }}"
+      then:
+        - transform:
+            mapping:
+              uid: "{{ toint urow.0.id }}"
+      else:
+        - transform:
+            mapping:
+              salt: "{{ uuid }}"
+              password_hash: "{{ sha256_concat password salt }}"
+        - sql.exec:
+            ds: main
+            sql: "INSERT INTO users(username,email,password_hash,salt) VALUES(?,?,?,?)"
+            params: { username: "{{ username }}", email: "{{ email }}", password_hash: "{{ password_hash }}", salt: "{{ salt }}" }
+            order: [username, email, password_hash, salt]
+        - sql.query:
+            ds: main
+            sql: "SELECT LAST_INSERT_ID() AS id"
+            params: {}
+            out: newu
+        - transform:
+            mapping:
+              uid: "{{ toint newu.0.id }}"
+  - sql.exec:
+      ds: main
+      sql: "INSERT INTO tenant_users(tenant_id,user_id,role) VALUES(?,?,?) ON DUPLICATE KEY UPDATE role=VALUES(role)"
+      params: { tenant_id: "{{ header.X-Tenant-Id }}", user_id: "{{ uid }}", role: "{{ role }}" }
+      order: [tenant_id, user_id, role]
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { uid: "{{ uid }}" } }
+      body: { uid: "{{ uid }}" }

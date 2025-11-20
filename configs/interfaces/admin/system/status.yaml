@@ -1,0 +1,74 @@
+module: admin
+endpoint: system_status
+method: GET
+path: /api/admin/status
+auth: jwt
+roles: [admin]
+permissions: [admin.system.status]
+docs:
+  title: 系统状态
+  description: 获取系统整体状态信息
+  response:
+    description: 返回系统状态统计信息
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            users: { type: int, description: 用户总数 }
+            tenants: { type: int, description: 租户数量 }
+            orders: { type: int, description: 今日订单数 }
+            revenue: { type: int, description: 今日收入 }
+            system_uptime: { type: string, description: 系统运行时间 }
+            memory_usage: { type: int, description: 内存使用率(%) }
+            cpu_usage: { type: int, description: CPU使用率(%) }
+            disk_usage: { type: int, description: 磁盘使用率(%) }
+            status: { type: string, description: 系统状态 }
+    example:
+      code: 0
+      msg: ok
+      data:
+        users: 1524
+        tenants: 89
+        orders: 234
+        revenue: 15680
+        system_uptime: "2天5小时30分钟"
+        memory_usage: 65
+        cpu_usage: 45
+        disk_usage: 78
+        status: "healthy"
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT COUNT(*) as total FROM users"
+      out: user_count
+  - sql.query:
+      ds: main
+      sql: "SELECT COUNT(*) as total FROM tenants"
+      out: tenant_count
+  - sql.query:
+      ds: main
+      sql: "SELECT COUNT(*) as total FROM orders WHERE DATE(created_at) = CURDATE()"
+      out: order_count
+  - sql.query:
+      ds: main
+      sql: "SELECT COALESCE(SUM(amount), 0) as total FROM payments WHERE DATE(created_at) = CURDATE()"
+      out: revenue
+  - transform:
+      mapping:
+        users: "{{ user_count.0.total }}"
+        tenants: "{{ tenant_count.0.total }}"
+        orders: "{{ order_count.0.total }}"
+        revenue: "{{ revenue.0.total }}"
+        system_uptime: "2天5小时30分钟"
+        memory_usage: 65
+        cpu_usage: 45
+        disk_usage: 78
+        status: "healthy"
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { users: "{{ users }}", tenants: "{{ tenants }}", orders: "{{ orders }}", revenue: "{{ revenue }}", system_uptime: "{{ system_uptime }}", memory_usage: "{{ memory_usage }}", cpu_usage: "{{ cpu_usage }}", disk_usage: "{{ disk_usage }}", status: "{{ status }}" } }
+      body: { users: "{{ users }}", tenants: "{{ tenants }}", orders: "{{ orders }}", revenue: "{{ revenue }}", system_uptime: "{{ system_uptime }}", memory_usage: "{{ memory_usage }}", cpu_usage: "{{ cpu_usage }}", disk_usage: "{{ disk_usage }}", status: "{{ status }}" }

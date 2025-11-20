@@ -1,0 +1,55 @@
+module: vector
+endpoint: demo
+method: POST
+path: /api/vector/demo
+docs:
+  title: 向量检索示例
+  description: 演示向量 upsert 与 search
+  response:
+    description: 返回检索结果列表
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: array
+          props:
+            item:
+              type: object
+              props:
+                id: { type: string }
+                score: { type: number }
+                payload: { type: object }
+    example:
+      code: 0
+      msg: ok
+      data:
+        - id: "demo-001"
+          score: 0.88
+          payload: { id: "demo-001" }
+request:
+  body:
+    id: { type: string, required: true, desc: 元素ID }
+    vec: { type: array, required: true, desc: 输入向量 }
+steps:
+  - vector.upsert:
+      ds: mem
+      collection: default
+      id: "{{ id }}"
+      vec: "{{ vec }}"
+      meta:
+        id: "{{ id }}"
+  - vector.search:
+      ds: mem
+      collection: default
+      vec: "{{ vec }}"
+      topK: 3
+      out: hits
+  - response:
+      status: 200
+      wrap:
+        code: 0
+        msg: ok
+        data: "{{ hits }}"
+      body: "{{ hits }}"

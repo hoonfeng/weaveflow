@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>接口文档</title>
+<style>
+body { font-family: Arial, sans-serif; margin: 24px; }
+h1 { margin-bottom: 12px; }
+.ep { border: 1px solid #ddd; padding: 12px; margin-bottom: 16px; border-radius: 6px; }
+.hdr { display: flex; justify-content: space-between; align-items: baseline; }
+.title { font-size: 18px; font-weight: 600; }
+.meta { color: #555; }
+table { border-collapse: collapse; width: 100%; margin-top: 8px; }
+th, td { border: 1px solid #ddd; padding: 6px 8px; font-size: 13px; }
+th { background: #f7f7f7; text-align: left; }
+.section { margin-top: 8px; font-weight: 600; }
+.group { margin-top: 20px; }
+.badge { display:inline-block; padding:2px 6px; border-radius:4px; background:#eee; margin-left:8px; font-size:12px; }
+.method { color:#0b6; font-weight:700; }
+.path { font-family: monospace; }
+.empty { color:#999; font-style: italic; }
+.filter { margin-bottom: 12px; }
+select { padding:4px; }
+.schema-name { font-family: monospace; }
+details { margin-left: 10px; }
+summary { cursor: pointer; }
+</style>
+</head>
+<body>
+<h1>接口文档</h1>
+<div class="filter">
+  <label>模块筛选</label>
+  <select id="modsel"><option value="">全部</option></select>
+  <label style="margin-left:12px">数据源</label>
+  <select id="datasrc"><option value="docs">/docs</option><option value="openapi">/openapi.json</option></select>
+  <a class="badge" href="/docs/test">打开测试工具</a>
+</div>
+<div id="content"></div>
+<script>
+function text(v){ return v==null?"":String(v) }
+function constraintsToText(c){ if(!c) return ""; const ks=Object.keys(c); if(ks.length===0) return ""; return ks.map(k=>`${k}=${c[k]}`).join(', ') }
+function makeParamsTable(list, title){
+  const wrap=document.createElement('div');
+  const h=document.createElement('div'); h.className='section'; h.textContent=title; wrap.appendChild(h);
+  if(!list || list.length===0){ const em=document.createElement('div'); em.className='empty'; em.textContent='无'; wrap.appendChild(em); return wrap }
+  const t=document.createElement('table');
+  const thead=document.createElement('thead');
+  thead.innerHTML='<tr><th>Source</th><th>Name</th><th>Description</th><th>Type</th><th>Required</th><th>Constraints</th></tr>';
+  t.appendChild(thead);
+  const tb=document.createElement('tbody');
+  list.forEach(p=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${text(p.source)}</td><td>${text(p.name)}</td><td>${text(p.description)}</td><td>${text(p.type)}</td><td>${p.required? 'true':'false'}</td><td>${constraintsToText(p.constraints)}</td>`;
+    tb.appendChild(tr);
+  });
+  t.appendChild(tb);
+  wrap.appendChild(t);
+  return wrap;
+}
+function makeEndpoint(ep){
+  const div=document.createElement('div'); div.className='ep';
+  const hdr=document.createElement('div'); hdr.className='hdr';
+  const left=document.createElement('div');
+  left.innerHTML=`<div class="title">${text(ep.title)|| ep.module + ' / ' + ep.endpoint}</div>
+  <div class="meta"><span class="method">${text(ep.method)}</span> <span class="path">${text(ep.path)}</span> ${ep.auth?('<span class="badge">auth: '+text(ep.auth)+'</span>'):''} ${(ep.roles&&ep.roles.length)?('<span class="badge">roles: '+ep.roles.join(',')+'</span>'):''}</div>`;
+  const right=document.createElement('div'); right.className='meta'; right.textContent=text(ep.description);
+  hdr.appendChild(left); hdr.appendChild(right); div.appendChild(hdr);
+  div.appendChild(makeParamsTable(ep.params,'参数'));
+  div.appendChild(makeParamsTable(ep.files,'文件'));
+  const resp=document.createElement('div'); resp.className='section'; resp.textContent='响应（HTTP）'; div.appendChild(resp);
+  const rt=document.createElement('table'); rt.innerHTML='<thead><tr><th>Status</th><th>Body</th><th>Description</th></tr></thead>';
+  const rtb=document.createElement('tbody'); const tr=document.createElement('tr'); tr.innerHTML=`<td>${ep.response?ep.response.status:''}</td><td>${ep.response?text(ep.response.body):''}</td><td>${ep.response?text(ep.response.body_description):''}</td>`; rtb.appendChild(tr); rt.appendChild(rtb); div.appendChild(rt);
+  const rh=document.createElement('div'); rh.className='section'; rh.textContent='响应头'; div.appendChild(rh);
+  const rht=document.createElement('table'); rht.innerHTML='<thead><tr><th>Name</th><th>Value</th><th>Description</th></tr></thead>';
+  const rhtb=document.createElement('tbody'); (ep.response && ep.response.headers || []).forEach(h=>{ const trh=document.createElement('tr'); trh.innerHTML=`<td>${text(h.name)}</td><td>${text(h.value)}</td><td>${text(h.description)}</td>`; rhtb.appendChild(trh); }); rht.appendChild(rhtb); div.appendChild(rht);
+  const rs=document.createElement('div'); rs.className='section'; rs.textContent='响应结构（Schema）'; div.appendChild(rs);
+  const schemaWrap=document.createElement('div');
+  function renderNode(n,parent){
+    const det=document.createElement('details');
+    if(!(n.children && n.children.length)) det.open=false;
+    const sum=document.createElement('summary');
+    sum.innerHTML=`<span class="schema-name">${text(n.name)}</span> <span class="badge">${text(n.type)||'object'}</span> <span class="meta">${text(n.description)}</span>`;
+    det.appendChild(sum);
+    if(n.children && n.children.length){ n.children.forEach(c=>renderNode(c, det)); }
+    parent.appendChild(det);
+  }
+  const nodes = (ep.response && ep.response.schema) || [];
+  if(nodes.length===0){ const em=document.createElement('div'); em.className='empty'; em.textContent='无'; schemaWrap.appendChild(em); }
+  else { nodes.forEach(n=>renderNode(n, schemaWrap)); }
+  div.appendChild(schemaWrap);
+  return div;
+}
+function render(list){
+  const c=document.getElementById('content'); c.innerHTML='';
+  const mods=[...new Set(list.map(i=>i.module).filter(Boolean))];
+  const sel=document.getElementById('modsel');
+  mods.forEach(m=>{ const opt=document.createElement('option'); opt.value=m; opt.textContent=m; sel.appendChild(opt); });
+  const chosen=sel.value;
+  const groups={}; list.forEach(i=>{ const k=i.module||'未分组'; if(chosen && k!==chosen) return; (groups[k]=groups[k]||[]).push(i); });
+  Object.keys(groups).forEach(m=>{
+    const g=document.createElement('div'); g.className='group';
+    const gh=document.createElement('h2'); gh.textContent=m; g.appendChild(gh);
+    groups[m].forEach(ep=> g.appendChild(makeEndpoint(ep)) );
+    c.appendChild(g);
+  });
+}
+function fromOpenAPI(spec){
+  const out=[]; const paths=spec.paths||{}; const mkeys=['get','post','put','delete','patch'];
+  Object.keys(paths).forEach(p=>{
+    const defs=paths[p]||{}; mkeys.forEach(m=>{ if(defs[m]){
+      const op=defs[m]; const md=(p.match(/^\/api\/(\w+)/)||[])[1]||'system';
+      const it={ module: md, endpoint: (op.operationId||m+' '+p), title: (op.summary||''), description: (op.description||''), method: m.toUpperCase(), path: p, params: [], files: [], response: { status: 200, body: '', body_description: '', headers: [], schema: [] } };
+      const params=op.parameters||[]; params.forEach(par=>{ const src=(par.in||''); const name=(par.name||''); const desc=(par.description||''); const typ=((par.schema||{}).type)||''; const req=!!par.required; it.params.push({ source: src, name: name, description: desc, type: typ, required: req, constraints: {} }); });
+      const resp200=(op.responses||{})['200']||{}; it.response.body_description = resp200.description||''; out.push(it);
+    }});
+  });
+  return out;
+}
+function loadDocs(){
+  const src=document.getElementById('datasrc').value;
+  if(src==='openapi'){
+    fetch('/openapi.json').then(r=>r.json()).then(spec=>{ const list=fromOpenAPI(spec); render(list); document.getElementById('modsel').addEventListener('change',()=>render(list)); });
+  } else {
+    fetch('/docs').then(r=>r.json()).then(list=>{ render(list); document.getElementById('modsel').addEventListener('change',()=>render(list)); });
+  }
+}
+loadDocs();
+document.getElementById('datasrc').addEventListener('change',()=>loadDocs());
+</script>
+</body>
+</html>

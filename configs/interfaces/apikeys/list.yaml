@@ -1,0 +1,51 @@
+module: apikeys
+endpoint: list
+method: GET
+path: /api/apikeys
+auth: jwt
+roles: ["admin"]
+docs:
+  title: 列出API Keys
+  description: 按租户列出所有API Key
+  response:
+    description: 返回 API Key 列表
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: array
+          props:
+            item:
+              type: object
+              props:
+                id: { type: integer, description: Key ID }
+                name: { type: string, description: 名称 }
+                status: { type: string, description: 状态 }
+                expired_at: { type: string, description: 过期时间 }
+                created_at: { type: string, description: 创建时间 }
+    example:
+      code: 0
+      msg: ok
+      data:
+        - id: 10
+          name: default
+          status: active
+          expired_at: null
+          created_at: "2025-11-17 09:00:00"
+request:
+  query:
+    tenant_id: { type: int, required: true, desc: 租户ID }
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT id,name,status,expired_at,created_at FROM api_keys WHERE tenant_id = ? ORDER BY id DESC"
+      params:
+        tenant_id: "{{ tenant_id }}"
+      order: [tenant_id]
+      out: rows
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ rows }}" }
+      body: "{{ rows }}"

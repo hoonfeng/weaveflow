@@ -1,0 +1,7 @@
+auth:
+  - { kind: jwt, name: "auth.jwt", match: { module: "admin" }, params: { }, order: 5 }
+  - { kind: permissions, name: "auth.permissions", match: { module: "admin" }, params: { }, order: 6 }
+  - { kind: jwt, name: "portal.jwt", match: { module: "portal" }, params: { }, order: 5 }
+  - { kind: permissions, name: "portal.permissions", match: { module: "portal" }, params: { }, order: 6 }
+  - { kind: plugin, name: "auth.apikey", match: { labelsAny: ["paid"] }, params: { plugin: "auth", function: "apikey", dsn: "${DB_DSN}", headers: { key: "X-Api-Key" } }, order: 10 }
+  - { kind: plugin, name: "signature.hmac", match: { labelsAll: ["paid","compute"] }, params: { plugin: "sig", function: "hmac", dsn: "${DB_DSN}", headers: { key: "X-Api-Key", ts: "X-Timestamp", nonce: "X-Nonce", sig: "X-Signature" }, method: "", path: "", bodyHash: "sha256", skewSeconds: 300 }, order: 20 }

@@ -1,0 +1,12 @@
+module: system
+endpoint: docs
+method: GET
+path: /docs
+docs:
+  title: 接口文档
+steps:
+  - admin.docs:
+      out: docs
+  - response:
+      status: 200
+      body: "{{ docs }}"

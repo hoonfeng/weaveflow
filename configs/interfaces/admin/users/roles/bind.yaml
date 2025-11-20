@@ -1,0 +1,37 @@
+module: admin
+endpoint: user_roles_bind
+method: POST
+path: /api/admin/user_roles/bind
+auth: jwt
+roles: [admin]
+permissions: [admin.user_roles.bind]
+docs:
+  title: 绑定用户角色
+  response:
+    description: 返回绑定的用户与角色ID
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            user_id: { type: int }
+            role_id: { type: int }
+request:
+  body:
+    user_id: { type: int, required: true, constraints: { min: "1" } }
+    role_id: { type: int, required: true, constraints: { min: "1" } }
+steps:
+  - sql.exec:
+      ds: main
+      sql: "INSERT INTO user_roles(user_id, role_id) VALUES(?, ?)"
+      params:
+        user_id: "{{ user_id }}"
+        role_id: "{{ role_id }}"
+      order: [user_id, role_id]
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { user_id: "{{ user_id }}", role_id: "{{ role_id }}" } }
+      body: { user_id: "{{ user_id }}", role_id: "{{ role_id }}" }

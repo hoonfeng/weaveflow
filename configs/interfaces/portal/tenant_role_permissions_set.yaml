@@ -1,0 +1,46 @@
+module: portal
+endpoint: tenant_role_permissions_set
+method: POST
+path: /api/portal/roles/{role}/permissions
+permissions: [portal.role_permissions.set]
+docs:
+  title: 设置角色权限
+  response:
+    description: 返回设置后的权限数量
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            synced: { type: int }
+request:
+  body:
+    codes: { type: array, required: true, desc: 权限码数组 }
+steps:
+  - validate: { target: header.X-Tenant-Id, required: true }
+  - transaction: { action: begin, ds: main }
+  - sql.exec:
+      ds: main
+      sql: "DELETE FROM tenant_role_permissions WHERE tenant_id=? AND role=?"
+      params: { tenant_id: "{{ header.X-Tenant-Id }}", role: "{{ role }}" }
+      order: [tenant_id, role]
+  - loop:
+      items: "{{ codes }}"
+      var: c
+      do:
+        - sql.exec:
+            ds: main
+            sql: "INSERT INTO tenant_role_permissions(tenant_id,role,perm_code) VALUES(?,?,?)"
+            params: { tenant_id: "{{ header.X-Tenant-Id }}", role: "{{ role }}", perm_code: "{{ c }}" }
+            order: [tenant_id, role, perm_code]
+  - transaction: { action: commit, ds: main }
+  - transform:
+      mapping:
+        synced: "{{ len codes }}"
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { synced: "{{ synced }}" } }
+      body: { synced: "{{ synced }}" }

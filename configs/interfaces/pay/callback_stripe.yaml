@@ -1,0 +1,71 @@
+module: pay
+endpoint: callback_stripe
+method: POST
+path: /api/pay/callback/stripe
+docs:
+  title: 支付回调（Stripe）
+  description: 支付成功/失败回调，更新订单并入账
+  response:
+    description: 返回订单号与支付状态
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            order_no: { type: string }
+            status: { type: string }
+    example:
+      code: 0
+      msg: ok
+      data: { order_no: "ORD20251117001", status: "succeeded" }
+request:
+  body:
+    order_no: { type: string, required: true, desc: 订单号 }
+    status: { type: string, required: true, desc: 状态(succeeded/failed), constraints: { enum: "succeeded,failed" } }
+    txn_id: { type: string, required: false, desc: 交易号 }
+steps:
+  - validate: { target: order_no, required: true }
+  - sql.exec:
+      ds: main
+      sql: "UPDATE orders SET status = ? WHERE order_no = ?"
+      params:
+        status: "{{ status }}"
+        order_no: "{{ order_no }}"
+      order: [status, order_no]
+  - sql.exec:
+      ds: main
+      sql: "INSERT INTO payments(order_no, provider, status, txn_id) VALUES(?,?,?,?)"
+      params:
+        order_no: "{{ order_no }}"
+        provider: "stripe"
+        status: "{{ status }}"
+        txn_id: "{{ txn_id }}"
+      order: [order_no, provider, status, txn_id]
+  - sql.query:
+      ds: main
+      sql: "SELECT tenant_id, amount, currency FROM orders WHERE order_no = ?"
+      params:
+        order_no: "{{ order_no }}"
+      order: [order_no]
+      out: ord
+  - branch:
+      if: "{{ eq status succeeded }}"
+      then:
+        - transform:
+            mapping:
+              payload: { event: payment.succeeded, order_no: "{{ order_no }}", amount: "{{ ord.0.amount }}", currency: "{{ ord.0.currency }}" }
+        - sql.exec:
+            ds: main
+            sql: "INSERT INTO webhook_tasks(endpoint_id, event, payload) SELECT id, ?, ? FROM webhook_endpoints WHERE tenant_id = ? AND status='active'"
+            params:
+              event: "payment.succeeded"
+              payload: "{{ json_encode payload }}"
+              tenant_id: "{{ ord.0.tenant_id }}"
+            order: [event, payload, tenant_id]
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { order_no: "{{ order_no }}", status: "{{ status }}" } }
+      body: { order_no: "{{ order_no }}", status: "{{ status }}" }

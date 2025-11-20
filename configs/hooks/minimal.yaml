@@ -1,0 +1,15 @@
+before:
+  - kind: plugin
+    name: metrics_before
+    match: { pathPrefix: /api }
+    params:
+      plugin: metrics
+      function: record
+      headers: { auth: Authorization }
+after:
+  - kind: plugin
+    name: metrics_after
+    match: { pathPrefix: /api }
+    params:
+      plugin: metrics
+      function: record

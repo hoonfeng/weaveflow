@@ -1,0 +1,46 @@
+module: admin
+endpoint: tenants_create
+method: POST
+path: /api/admin/tenants
+auth: jwt
+roles: [admin]
+permissions: [admin.tenants.create]
+docs:
+  title: 创建租户
+  response:
+    description: 返回创建的租户名和状态
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            name: { type: string, description: 租户名 }
+            status: { type: string, description: 状态 }
+request:
+  body:
+    name: { type: string, required: true, desc: 租户名称, constraints: { minLen: "2", regex: "^[a-z][a-z0-9-]*$" } }
+    domain: { type: string, required: false, desc: 域名 }
+    contact_email: { type: string, required: true, desc: 联系邮箱, constraints: { format: email } }
+    description: { type: string, required: false, desc: 描述 }
+    status: { type: string, required: false, desc: 状态, default: active }
+steps:
+  - transform:
+      mapping:
+        status_var: "{{ or status active }}"
+  - sql.exec:
+      ds: main
+      sql: "INSERT INTO tenants(name,domain,contact_email,description,status) VALUES(?,?,?,?,?)"
+      params:
+        name: "{{ name }}"
+        domain: "{{ domain }}"
+        contact_email: "{{ contact_email }}"
+        description: "{{ description }}"
+        status: "{{ status_var }}"
+      order: [name, domain, contact_email, description, status]
+  - response:
+      status: 201
+      wrap: { code: 0, msg: ok, data: { name: "{{ name }}" } }
+      body: { name: "{{ name }}" }

@@ -1,0 +1,10 @@
+table: tenant_users
+columns:
+  id: { type: BIGINT, pk: true, auto: true }
+  tenant_id: { type: BIGINT, notNull: true }
+  user_id: { type: BIGINT, notNull: true }
+  role: { type: VARCHAR(32), notNull: true }
+  created_at: { type: TIMESTAMP, default: CURRENT_TIMESTAMP }
+indexes:
+  - name: uk_tenant_user
+    columns: [tenant_id, user_id]

@@ -1,0 +1,2 @@
+after:
+  - { kind: plugin, name: "metering.record", match: { labelsAny: ["paid"] }, params: { plugin: "metrics", function: "record", dsn: "${DB_DSN}", headers: { tenant_id: "X-Tenant-Id" } }, order: 10 }

@@ -1,0 +1,31 @@
+module: admin
+endpoint: tenant_users_unbind
+method: DELETE
+path: /api/admin/tenants/{id}/users/{uid}
+auth: jwt
+roles: [admin]
+permissions: [admin.tenant_users.unbind]
+docs:
+  title: 解绑租户成员
+  response:
+    description: 返回解绑结果
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data: { type: object }
+steps:
+  - sql.exec:
+      ds: main
+      sql: "DELETE FROM tenant_users WHERE tenant_id=? AND user_id=?"
+      params: { tenant_id: "{{ id }}", user_id: "{{ uid }}" }
+      order: [tenant_id, user_id]
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: {} }
+      body: {}
+    example:
+      code: 0
+      msg: ok
+      data: {}

@@ -1,0 +1,44 @@
+module: admin
+endpoint: tenant_users_list
+method: GET
+path: /api/admin/tenants/{id}/users
+auth: jwt
+roles: [admin]
+permissions: [admin.tenant_users.list]
+docs:
+  title: 租户成员列表
+  description: 返回指定租户的成员列表
+  response:
+    description: 返回租户成员及其角色
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: array
+          props:
+            item:
+              type: object
+              props:
+                uid: { type: int }
+                username: { type: string }
+                email: { type: string }
+                role: { type: string }
+                created_at: { type: string }
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT tu.user_id AS uid, u.username, u.email, tu.role, tu.created_at FROM tenant_users tu JOIN users u ON tu.user_id=u.id WHERE tu.tenant_id=? ORDER BY uid DESC"
+      params: { id: "{{ id }}" }
+      order: [id]
+      out: rows
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ rows }}" }
+      body: "{{ rows }}"
+    example:
+      code: 0
+      msg: ok
+      data:
+        - { uid: 10, username: alice, email: alice@example.com, role: member, created_at: "2025-11-01" }

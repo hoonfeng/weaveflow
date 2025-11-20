@@ -1,0 +1,29 @@
+module: system
+endpoint: docs
+method: GET
+path: /docs
+permissions: [system.docs]
+docs:
+  title: 接口文档列表
+  response:
+    description: 返回所有接口文档端点列表
+    schema:
+      props:
+        - name: module
+          type: string
+          description: 模块名
+        - name: method
+          type: string
+          description: 方法
+        - name: path
+          type: string
+          description: 路径
+        - name: title
+          type: string
+          description: 标题
+steps:
+  - admin.docs:
+      out: endpoints
+  - response:
+      status: 200
+      body: "{{ endpoints }}"

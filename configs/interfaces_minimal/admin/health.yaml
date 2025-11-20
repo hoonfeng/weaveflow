@@ -1,0 +1,21 @@
+module: admin
+endpoint: health
+method: GET
+path: /api/admin/health
+auth: jwt
+docs:
+  title: 依赖健康聚合
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT 1 AS ok"
+      out: sqlok
+  - plugins.status:
+      out: plugins
+  - plugin.call:
+      plugin: sysinfo
+      function: resources
+      out: sys
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { sql_main: ok, plugin_count: "{{ len plugins }}", cpu_percent: "{{ sys.cpu_percent_str }}" } }

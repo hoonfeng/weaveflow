@@ -1,0 +1,65 @@
+module: admin
+endpoint: payments_list
+method: GET
+path: /api/admin/payments
+auth: jwt
+roles: [admin]
+permissions: [admin.payments.list]
+docs:
+  title: 支付记录列表
+  response:
+    description: 返回支付记录列表，包含交易ID与状态
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: array
+          props:
+            item:
+              type: object
+              props:
+                txn_id: { type: string, description: 交易ID }
+                order_no: { type: string, description: 订单号 }
+                provider: { type: string, description: 支付渠道 }
+                status: { type: string, description: 状态 }
+                ts: { type: string, description: 时间 }
+request:
+  query:
+    order_no: { type: string, required: false }
+    provider: { type: string, required: false }
+    status: { type: string, required: false }
+    page: { type: int, required: false }
+    size: { type: int, required: false }
+    page_size: { type: int, required: false }
+steps:
+  - transform:
+      mapping:
+        size_var: "{{ or page_size (or size 50) }}"
+        page_var: "{{ or page 1 }}"
+        offset_var: "{{ sub (mul page_var size_var) size_var }}"
+        order_no_var: "{{ or order_no '' }}"
+        provider_var: "{{ or provider '' }}"
+        status_var: "{{ or status '' }}"
+  - sql.query:
+      ds: main
+      sql: "SELECT order_no, provider, status, txn_id, created_at AS ts FROM payments WHERE (?='' OR order_no=?) AND (?='' OR provider=?) AND (?='' OR status=?) ORDER BY created_at DESC LIMIT {{ size_var }} OFFSET {{ offset_var }}"
+      params:
+        order_no1: "{{ order_no_var }}"
+        order_no2: "{{ order_no_var }}"
+        provider1: "{{ provider_var }}"
+        provider2: "{{ provider_var }}"
+        status1: "{{ status_var }}"
+        status2: "{{ status_var }}"
+      order: [order_no1, order_no2, provider1, provider2, status1, status2]
+      out: rows
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ rows }}" }
+      body: "{{ rows }}"
+    example:
+      code: 0
+      msg: ok
+      data:
+        - { txn_id: "tx_001", order_no: "ord_001", provider: "alipay", status: "succeeded", ts: "2025-11-01T10:00:00Z" }

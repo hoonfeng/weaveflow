@@ -1,0 +1,49 @@
+module: user
+endpoint: get_profile
+method: GET
+path: /api/user/{id}
+permissions: [user.get_profile]
+docs:
+  title: 获取用户信息
+  description: 获取指定用户的基本资料
+  response:
+    description: 返回用户的基本信息
+    headers:
+      X-Trace: 请求追踪标识
+    schema:
+      type: object
+      props:
+        code: { type: int, desc: 状态码 }
+        msg: { type: string, desc: 描述 }
+        data:
+          type: object
+          desc: 用户数据
+          props:
+            id: { type: int, desc: 用户ID }
+            name: { type: string, desc: 用户名 }
+  errors:
+    - { code: E_NOT_FOUND, message: 用户不存在, description: ID 无效 }
+request:
+  path:
+    id: { type: int, required: true, min: 1, desc: 用户ID }
+  header:
+    Authorization: { type: string, required: true, desc: 认证令牌 }
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT :id AS id, 'demo' AS name"
+      params:
+        id: "{{ id }}"
+      out: user
+  - transform:
+      mapping:
+        trace_id: "{{ header:Authorization }}"
+  - response:
+      status: 200
+      headers:
+        X-Trace: "{{ trace_id }}"
+      wrap:
+        code: 0
+        msg: ok
+        data: "{{ user }}"
+      body: "{{ user }}"

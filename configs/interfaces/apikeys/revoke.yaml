@@ -1,0 +1,39 @@
+module: apikeys
+endpoint: revoke
+method: POST
+path: /api/apikeys/revoke
+auth: jwt
+roles: ["admin"]
+docs:
+  title: 撤销API Key
+  description: 将密钥状态更新为撤销
+  response:
+    description: 返回撤销的密钥ID
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            id: { type: integer, description: 密钥ID }
+    example:
+      code: 0
+      msg: ok
+      data: { id: 10 }
+request:
+  body:
+    id: { type: int, required: true, desc: 密钥ID }
+steps:
+  - validate: { target: id, required: true }
+  - sql.exec:
+      ds: main
+      sql: "UPDATE api_keys SET status='revoked' WHERE id = ?"
+      params:
+        id: "{{ id }}"
+      order: [id]
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { id: "{{ id }}" } }
+      body: { id: "{{ id }}" }

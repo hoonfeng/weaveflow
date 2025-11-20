@@ -1,0 +1,6 @@
+table: tenants
+columns:
+  id: { type: BIGINT, pk: true, auto: true }
+  name: { type: VARCHAR(128), notNull: true }
+  status: { type: VARCHAR(32), notNull: true }
+  created_at: { type: TIMESTAMP, default: CURRENT_TIMESTAMP }

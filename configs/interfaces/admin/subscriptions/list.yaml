@@ -1,0 +1,47 @@
+module: admin
+endpoint: subscriptions_list
+method: GET
+path: /api/admin/subscriptions
+auth: jwt
+roles: [admin]
+permissions: [admin.subscriptions.list]
+docs:
+  title: 订阅列表
+  response:
+    description: 返回订阅列表
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: array
+          props:
+            item:
+              type: object
+              props:
+                id: { type: int, description: 订阅ID }
+                tenant_id: { type: int, description: 租户ID }
+                plan_id: { type: int, description: 计划ID }
+                plan_name: { type: string, description: 计划名称 }
+                status: { type: string, description: 状态 }
+request:
+  query:
+    tenant_id: { type: int, required: false }
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT s.id, s.tenant_id, s.plan_id, s.status, p.name AS plan_name FROM subscriptions s JOIN plans p ON s.plan_id=p.id WHERE (?=0 OR s.tenant_id=?)"
+      params:
+        tenant_id: "{{ tenant_id }}"
+      order: [tenant_id, tenant_id]
+      out: rows
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ rows }}" }
+      body: "{{ rows }}"
+    example:
+      code: 0
+      msg: ok
+      data:
+        - { id: 5, tenant_id: 8, plan_id: 2, plan_name: pro, status: active }

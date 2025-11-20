@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>API 平台门户</title>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css" />
+<script src="https://unpkg.com/element-plus"></script>
+<style>body{font-family:Arial;margin:20px} .box{border:1px solid #ddd;padding:12px;margin-top:12px}</style>
+</head>
+<body>
+<div id="app">
+  <h1>API 平台门户</h1>
+  <div class="box">
+    <h3>登录获取JWT</h3>
+    <el-input v-model="login.username" placeholder="用户名"></el-input>
+    <el-input v-model="login.password" placeholder="密码" type="password"></el-input>
+    <el-button type="primary" @click="doLogin">登录</el-button>
+    <div>Authorization: Bearer {{ jwt.substring(0,20) }}...</div>
+  </div>
+  <div class="box">
+    <h3>API Keys 管理</h3>
+    <el-input v-model="tenantId" placeholder="租户ID"></el-input>
+    <el-input v-model="keyName" placeholder="密钥名称"></el-input>
+    <el-button type="primary" @click="createKey">创建Key</el-button>
+    <el-button @click="listKeys">列出Keys</el-button>
+    <el-table :data="keys" style="width: 100%">
+      <el-table-column prop="id" label="ID" width="80" />
+      <el-table-column prop="name" label="名称" />
+      <el-table-column prop="status" label="状态" />
+      <el-table-column prop="created_at" label="创建时间" />
+    </el-table>
+  </div>
+  <div class="box">
+    <h3>订阅管理</h3>
+    <el-button @click="listPlans">查看套餐</el-button>
+    <el-table :data="plans" style="width: 100%">
+      <el-table-column prop="id" label="ID" width="80" />
+      <el-table-column prop="name" label="名称" />
+      <el-table-column prop="monthly_quota" label="月配额" />
+      <el-table-column prop="price" label="价格" />
+      <el-table-column label="操作">
+        <template #default="scope">
+          <el-button size="small" @click="subscribe(scope.row.id)">订阅</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+    <el-button @click="currentSub">当前订阅</el-button>
+    <pre>{{ current }}</pre>
+  </div>
+  <div class="box">
+    <h3>租户限流设置</h3>
+    <el-input v-model="limits.rps" placeholder="rps"></el-input>
+    <el-input v-model="limits.burst" placeholder="burst"></el-input>
+    <el-button type="primary" @click="setLimits">设置</el-button>
+    <el-button @click="getLimits">查询</el-button>
+    <pre>{{ limitsResult }}</pre>
+  </div>
+  <div class="box">
+    <h3>用量图表</h3>
+    <el-button @click="loadUsage">加载用量</el-button>
+    <div id="chartDaily" style="height:300px"></div>
+    <div id="chartMonthly" style="height:300px;margin-top:12px"></div>
+  </div>
+  <div class="box">
+    <h3>Webhook 管理</h3>
+    <el-input v-model="wh.url" placeholder="Webhook URL"></el-input>
+    <el-input v-model="wh.secret" placeholder="Secret(可选)"></el-input>
+    <el-button type="primary" @click="createWebhook">创建端点</el-button>
+    <el-button @click="listWebhooks">列出端点</el-button>
+    <el-table :data="webhooks" style="width: 100%">
+      <el-table-column prop="id" label="ID" width="80" />
+      <el-table-column prop="url" label="URL" />
+      <el-table-column prop="status" label="状态" />
+      <el-table-column label="操作">
+        <template #default="scope">
+          <el-button size="small" @click="delWebhook(scope.row.id)">删除</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+    <h4>Webhook 任务</h4>
+    <el-button @click="listTasks">查看任务</el-button>
+    <el-table :data="tasks" style="width: 100%">
+      <el-table-column prop="id" label="ID" width="80" />
+      <el-table-column prop="event" label="事件" />
+      <el-table-column prop="status" label="状态" />
+      <el-table-column prop="retries" label="重试次数" />
+      <el-table-column prop="next_try_at" label="下次时间" />
+      <el-table-column label="操作">
+        <template #default="scope">
+          <el-button size="small" @click="retryTask(scope.row.id)">重试</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<script>
+const { createApp } = Vue
+createApp({
+  data(){ return { jwt:'', login:{username:'',password:''}, tenantId:'', keyName:'', keys:[], plans:[], current:[], wh:{url:'',secret:''}, webhooks:[], tasks:[], limits:{rps:'',burst:''}, limitsResult:[] } },
+  methods:{
+    async doLogin(){ const r = await fetch('/api/auth/login',{method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(this.login)}); const t = await r.json(); this.jwt = t.data?.token || '' },
+    async createKey(){ const r = await fetch('/api/apikeys',{method:'POST', headers:this.auth(), body: JSON.stringify({tenant_id:Number(this.tenantId), name:this.keyName})}); alert(await r.text()) },
+    async listKeys(){ const r = await fetch('/api/apikeys?tenant_id='+encodeURIComponent(this.tenantId),{headers:this.auth()}); this.keys = (await r.json()).data || [] },
+    async listPlans(){ const r = await fetch('/api/plans',{headers:this.auth()}); this.plans = (await r.json()).data || [] },
+    async subscribe(pid){ const r = await fetch('/api/subscriptions',{method:'POST', headers:this.auth(), body: JSON.stringify({tenant_id:Number(this.tenantId), plan_id:Number(pid)})}); alert(await r.text()) },
+    async currentSub(){ const r = await fetch('/api/subscriptions/current?tenant_id='+encodeURIComponent(this.tenantId),{headers:this.auth()}); this.current = (await r.json()).data || [] },
+    async setLimits(){ const r = await fetch('/api/admin/tenant_limits/upsert',{method:'POST', headers:this.auth(), body: JSON.stringify({tenant_id:Number(this.tenantId), rps:Number(this.limits.rps), burst:Number(this.limits.burst)})}); alert(await r.text()) },
+    async getLimits(){ const r = await fetch('/api/admin/tenant_limits?tenant_id='+encodeURIComponent(this.tenantId),{headers:this.auth()}); this.limitsResult = (await r.json()).data || [] },
+    async loadUsage(){
+      const d = await (await fetch('/api/usage/daily?tenant_id='+encodeURIComponent(this.tenantId),{headers:this.auth()})).json();
+      const m = await (await fetch('/api/usage/monthly?tenant_id='+encodeURIComponent(this.tenantId),{headers:this.auth()})).json();
+      const daily = (d.data||[]).map(x=>({day:x.day,calls:Number(x.calls),avg_ms:Number(x.avg_ms)}));
+      const monthly = (m.data||[]).map(x=>({month:x.month,calls:Number(x.calls),avg_ms:Number(x.avg_ms)}));
+      const cd = echarts.init(document.getElementById('chartDaily'));
+      cd.setOption({title:{text:'每日调用次数'},xAxis:{type:'category',data:daily.map(x=>x.day)},yAxis:{type:'value'},series:[{type:'bar',data:daily.map(x=>x.calls)}]});
+      const cm = echarts.init(document.getElementById('chartMonthly'));
+      cm.setOption({title:{text:'每月调用次数'},xAxis:{type:'category',data:monthly.map(x=>x.month)},yAxis:{type:'value'},series:[{type:'bar',data:monthly.map(x=>x.calls)}]});
+    },
+    async createWebhook(){ const r = await fetch('/api/webhooks',{method:'POST', headers:this.auth(), body: JSON.stringify({tenant_id:Number(this.tenantId), url:this.wh.url, secret:this.wh.secret})}); alert(await r.text()) },
+    async listWebhooks(){ const r = await fetch('/api/webhooks?tenant_id='+encodeURIComponent(this.tenantId),{headers:this.auth()}); this.webhooks = (await r.json()).data || [] },
+    async delWebhook(id){ const r = await fetch('/api/webhooks/delete',{method:'POST', headers:this.auth(), body: JSON.stringify({id:Number(id)})}); alert(await r.text()); this.listWebhooks() },
+    async listTasks(){ const r = await fetch('/api/webhooks/tasks?tenant_id='+encodeURIComponent(this.tenantId),{headers:this.auth()}); this.tasks = (await r.json()).data || [] },
+    async retryTask(id){ const r = await fetch('/api/webhooks/tasks/retry',{method:'POST', headers:this.auth(), body: JSON.stringify({id:Number(id)})}); alert(await r.text()); this.listTasks() },
+    auth(){ const h = {}; if(this.jwt){ h['Authorization'] = 'Bearer '+this.jwt } ; h['Content-Type']='application/json'; return h }
+  }
+}).use(ElementPlus).mount('#app')
+</script>
+</body>
+</html>

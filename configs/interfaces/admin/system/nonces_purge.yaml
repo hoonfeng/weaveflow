@@ -1,0 +1,24 @@
+module: admin
+endpoint: nonces_purge
+method: POST
+path: /api/admin/nonces/purge
+auth: jwt
+roles: [admin]
+permissions: [admin.nonces.purge]
+docs:
+  title: 清理HMAC非重放随机值
+  description: 删除早于TTL的nonce记录
+request:
+  query:
+    ttlSeconds: { type: int, required: false, desc: TTL秒，默认900 }
+steps:
+  - sql.exec:
+      ds: main
+      sql: "DELETE FROM hmac_nonces WHERE created_at < TIMESTAMPADD(SECOND, -?, NOW())"
+      params:
+        ttlSeconds: "{{ ttlSeconds }}"
+      order: [ttlSeconds]
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { ttlSeconds: "{{ ttlSeconds }}" } }
+      body: { ttlSeconds: "{{ ttlSeconds }}" }

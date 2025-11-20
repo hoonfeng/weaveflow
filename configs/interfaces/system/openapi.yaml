@@ -1,0 +1,24 @@
+module: system
+endpoint: openapi
+method: GET
+path: /openapi.json
+permissions: [system.openapi]
+docs:
+  title: OpenAPI 文档导出
+  response:
+    description: 返回项目的 OpenAPI 结构（JSON）
+    headers:
+      Content-Type: application/json
+    schema:
+      props:
+        openapi: { type: string, description: 版本 }
+        info: { type: object, description: 项目信息 }
+        paths: { type: object, description: 路径定义 }
+steps:
+  - admin.openapi:
+      out: spec
+  - response:
+      status: 200
+      headers:
+        Content-Type: application/json
+      body: "{{ spec }}"

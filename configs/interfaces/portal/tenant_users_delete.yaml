@@ -1,0 +1,26 @@
+module: portal
+endpoint: tenant_users_delete
+method: DELETE
+path: /api/portal/users/{uid}
+permissions: [portal.tenant_users.delete]
+docs:
+  title: 删除子账户绑定
+  response:
+    description: 返回删除结果
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data: { type: object }
+steps:
+  - validate: { target: header.X-Tenant-Id, required: true }
+  - sql.exec:
+      ds: main
+      sql: "DELETE FROM tenant_users WHERE tenant_id=? AND user_id=?"
+      params: { tenant_id: "{{ header.X-Tenant-Id }}", uid: "{{ uid }}" }
+      order: [tenant_id, uid]
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: {} }
+      body: {}

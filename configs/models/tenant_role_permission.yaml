@@ -1,0 +1,8 @@
+table: tenant_role_permissions
+columns:
+  tenant_id: { type: BIGINT, notNull: true }
+  role: { type: VARCHAR(32), notNull: true }
+  perm_code: { type: VARCHAR(128), notNull: true }
+indexes:
+  - name: uk_tenant_role_perm
+    columns: [tenant_id, role, perm_code]

@@ -1,0 +1,46 @@
+module: admin
+endpoint: orders_detail
+method: GET
+path: /api/admin/orders/{order_no}
+auth: jwt
+roles: [admin]
+permissions: [admin.orders.detail]
+docs:
+  title: 订单详情
+  response:
+    description: 返回订单详情记录
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: array
+          props:
+            item:
+              type: object
+              props:
+                order_no: { type: string }
+                tenant_id: { type: int }
+                amount: { type: number }
+                currency: { type: string }
+                provider: { type: string }
+                status: { type: string }
+                ts: { type: string }
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT order_no, tenant_id, amount, currency, provider, status, created_at AS ts FROM orders WHERE order_no=? LIMIT 1"
+      params:
+        order_no: "{{ order_no }}"
+      order: [order_no]
+      out: rows
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ rows }}" }
+      body: "{{ rows }}"
+    example:
+      code: 0
+      msg: ok
+      data:
+        - { order_no: "ord_001", amount: 99.9, provider: "alipay", status: "succeeded", ts: "2025-11-01T10:00:00Z" }

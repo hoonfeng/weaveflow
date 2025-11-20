@@ -1,0 +1,35 @@
+module: admin
+endpoint: payments_stats
+method: GET
+path: /api/admin/overview/payments_stats
+auth: jwt
+roles: [admin]
+permissions: [admin.overview.payments_stats]
+docs:
+  title: 支付统计
+  description: 返回支付状态与渠道分布
+  response:
+    schema:
+      type: object
+      props:
+        by_status: { type: array }
+        by_provider: { type: array }
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT status, COUNT(*) AS cnt FROM payments GROUP BY status ORDER BY cnt DESC"
+      out: by_status
+  - sql.query:
+      ds: main
+      sql: "SELECT provider, COUNT(*) AS cnt FROM payments GROUP BY provider ORDER BY cnt DESC"
+      out: by_provider
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { by_status: "{{ by_status }}", by_provider: "{{ by_provider }}" } }
+      body: { by_status: "{{ by_status }}", by_provider: "{{ by_provider }}" }
+    example:
+      code: 0
+      msg: ok
+      data:
+        by_status: [ { status: succeeded, cnt: 30 }, { status: failed, cnt: 2 } ]
+        by_provider: [ { provider: alipay, cnt: 20 }, { provider: wechat, cnt: 12 } ]

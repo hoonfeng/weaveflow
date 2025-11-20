@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IFaceConf Minimal Demo</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:#0a0a0a; color:#fff; margin:0; }
+    header { padding:16px; background:#111; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center }
+    .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:16px; padding:16px }
+    .card { background:#1a1a1a; border:1px solid #333; border-radius:12px; padding:16px }
+    input, button { padding:10px; border-radius:8px; border:1px solid #333; background:#222; color:#fff }
+    button { cursor:pointer }
+    pre { background:#141414; border:1px solid #333; padding:10px; border-radius:8px; overflow:auto; max-height:260px }
+    .row { display:flex; gap:8px; align-items:center; margin-top:8px }
+    .ok { color:#10b981 }
+    .err { color:#ef4444 }
+  </style>
+  <script>
+    async function call(path, method='GET', body=null, token=null) {
+      const headers = { 'Content-Type': 'application/json' }
+      if (token) headers['Authorization'] = 'Bearer ' + token
+      const res = await fetch(path, { method, headers, body: body ? JSON.stringify(body) : undefined })
+      const txt = await res.text()
+      try { return JSON.parse(txt) } catch { return { raw: txt, status: res.status } }
+    }
+
+    async function login() {
+      const u = document.getElementById('username').value
+      const p = document.getElementById('password').value
+      const out = document.getElementById('login_out')
+      const r = await call('/api/auth/login', 'POST', { username: u, password: p })
+      out.textContent = JSON.stringify(r, null, 2)
+      const t = r?.data?.token || r?.token
+      if (t) { window.token = t; document.getElementById('jwt_state').textContent = '已登录'; document.getElementById('jwt_state').className='ok' }
+      else { document.getElementById('jwt_state').textContent = '登录失败'; document.getElementById('jwt_state').className='err' }
+    }
+
+    async function health() {
+      const out = document.getElementById('health_out')
+      const r = await call('/api/admin/health', 'GET', null, window.token)
+      out.textContent = JSON.stringify(r, null, 2)
+    }
+
+    async function uploadFile() {
+      const f = document.getElementById('file').files[0]
+      const out = document.getElementById('upload_out')
+      if (!f) { out.textContent = '请选择文件'; return }
+      const fd = new FormData(); fd.append('files', f)
+      const res = await fetch('/api/files/upload', { method:'POST', body: fd })
+      out.textContent = await res.text()
+    }
+
+    async function docs() { const r = await fetch('/docs'); document.getElementById('docs_out').textContent = await r.text() }
+    async function reverseText() {
+      const s = document.getElementById('revsrc').value
+      const out = document.getElementById('reverse_out')
+      const r = await call('/api/string/reverse', 'POST', { text: s }, window.token)
+      out.textContent = JSON.stringify(r, null, 2)
+    }
+    window.addEventListener('DOMContentLoaded', () => { document.getElementById('docs_btn').click() })
+  </script>
+</head>
+<body>
+  <header>
+    <div>IFaceConf Minimal Demo</div>
+    <div>JWT状态: <span id="jwt_state" class="err">未登录</span></div>
+  </header>
+  <main class="grid">
+    <section class="card">
+      <h3>登录</h3>
+      <div class="row"><input id="username" placeholder="用户名" value="admin" /><input id="password" type="password" placeholder="密码" value="admin123" /><button onclick="login()">登录</button></div>
+      <pre id="login_out"></pre>
+    </section>
+    <section class="card">
+      <h3>系统健康</h3>
+      <div class="row"><button onclick="health()">刷新</button></div>
+      <pre id="health_out"></pre>
+    </section>
+    <section class="card">
+      <h3>文件上传</h3>
+      <div class="row"><input id="file" type="file" /><button onclick="uploadFile()">上传</button></div>
+      <pre id="upload_out"></pre>
+    </section>
+    <section class="card">
+      <h3>字符串反转（插件调用）</h3>
+      <div class="row"><input id="revsrc" placeholder="输入字符串" value="hello" /><button onclick="reverseText()">反转</button></div>
+      <pre id="reverse_out"></pre>
+    </section>
+    <section class="card">
+      <h3>接口文档</h3>
+      <div class="row"><button id="docs_btn" onclick="docs()">查看</button></div>
+      <pre id="docs_out"></pre>
+    </section>
+  </main>
+</body>
+</html>

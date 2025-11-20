@@ -1,0 +1,51 @@
+module: admin
+endpoint: pay_providers_create
+method: POST
+path: /api/admin/pay/providers
+auth: jwt
+roles: [admin]
+permissions: [admin.pay.providers.create]
+docs:
+  title: 创建支付通道
+  response:
+    description: 返回创建后的记录
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            id: { type: int }
+            code: { type: string }
+            name: { type: string }
+            enabled: { type: bool }
+            config_json: { type: string }
+request:
+  body:
+    code: { type: string, required: true, desc: 渠道代码如 wechat/alipay }
+    name: { type: string, required: true, desc: 渠道名称 }
+    enabled: { type: bool, required: false, desc: 是否启用 }
+    config_json: { type: string, required: false, desc: JSON 配置 }
+steps:
+  - sql.exec:
+      ds: main
+      sql: "INSERT INTO payment_providers(code,name,enabled,config_json) VALUES(?,?,?,?)"
+      params:
+        code: "{{ code }}"
+        name: "{{ name }}"
+        enabled: "{{ or enabled true }}"
+        config_json: "{{ or config_json '' }}"
+      order: [code, name, enabled, config_json]
+  - sql.query:
+      ds: main
+      sql: "SELECT id, code, name, enabled, config_json FROM payment_providers WHERE code=? LIMIT 1"
+      params:
+        code: "{{ code }}"
+      order: [code]
+      out: row
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ row.0 }}" }
+      body: "{{ row.0 }}"

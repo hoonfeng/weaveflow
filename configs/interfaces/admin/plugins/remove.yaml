@@ -1,0 +1,31 @@
+module: admin
+endpoint: plugins_remove
+method: POST
+path: /api/admin/plugins/remove
+auth: jwt
+roles: [admin]
+permissions: [admin.plugins.remove]
+docs:
+  title: 动态移除插件
+  response:
+    description: 返回移除结果
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data: { type: object }
+    example:
+      code: 0
+      msg: ok
+      data: { removed: ["metrics"] }
+request:
+  body:
+    names: { type: array, required: true, desc: 插件名称数组 }
+steps:
+  - plugins.remove:
+      names: "{{ names }}"
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { removed: "{{ names }}" } }
+      body: { removed: "{{ names }}" }

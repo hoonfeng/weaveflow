@@ -1,0 +1,11 @@
+table: users
+columns:
+  id: { type: BIGINT, pk: true, auto: true }
+  username: { type: VARCHAR(64), notNull: true, unique: true }
+  email: { type: VARCHAR(128), notNull: true }
+  password_hash: { type: VARCHAR(128), notNull: true }
+  salt: { type: VARCHAR(64), notNull: true }
+  created_at: { type: TIMESTAMP, default: CURRENT_TIMESTAMP }
+indexes:
+  - name: idx_users_email
+    columns: [email]

@@ -1,0 +1,59 @@
+module: admin
+endpoint: orders_list
+method: GET
+path: /api/admin/orders
+auth: jwt
+roles: [admin]
+permissions: [admin.orders.list]
+docs:
+  title: 订单列表
+  response:
+    description: 返回订单列表，包含金额与状态
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: array
+          props:
+            item:
+              type: object
+              props:
+                order_no: { type: string, description: 订单号 }
+                amount: { type: number, description: 金额 }
+                status: { type: string, description: 状态 }
+request:
+  query:
+    tenant_id: { type: int, required: false }
+    provider: { type: string, required: false }
+    status: { type: string, required: false }
+    page: { type: int, required: false }
+    size: { type: int, required: false }
+    page_size: { type: int, required: false }
+steps:
+  - transform:
+      mapping:
+        size_var: "{{ or page_size (or size 50) }}"
+        page_var: "{{ or page 1 }}"
+        offset_var: "{{ sub (mul page_var size_var) size_var }}"
+  - sql.query:
+      ds: main
+      sql: "SELECT order_no, tenant_id, amount, currency, provider, status, created_at AS ts FROM orders WHERE (?=0 OR tenant_id=?) AND (?='' OR provider=?) AND (?='' OR status=?) ORDER BY created_at DESC LIMIT {{ size_var }} OFFSET {{ offset_var }}"
+      params:
+        tenant_id: "{{ or tenant_id 0 }}"
+        provider1: "{{ or provider '' }}"
+        provider2: "{{ or provider '' }}"
+        status1: "{{ or status '' }}"
+        status2: "{{ or status '' }}"
+      order: [tenant_id, tenant_id, provider1, provider2, status1, status2]
+      out: rows
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ rows }}" }
+      body: "{{ rows }}"
+    example:
+      code: 0
+      msg: ok
+      data:
+        - { order_no: "ord_001", amount: 99.9, status: "succeeded" }

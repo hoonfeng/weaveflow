@@ -1,0 +1,50 @@
+module: admin
+endpoint: orders_export
+method: GET
+path: /api/admin/orders/export
+auth: jwt
+roles: [admin]
+permissions: [admin.orders.export]
+docs:
+  title: 订单导出
+  response:
+    description: 返回订单列表（JSON），用于下载
+    headers:
+      Content-Type: application/json
+    schema:
+      type: array
+      props:
+        item:
+          type: object
+          props:
+            order_no: { type: string }
+            tenant_id: { type: int }
+            amount: { type: number }
+            currency: { type: string }
+            provider: { type: string }
+            status: { type: string }
+            ts: { type: string }
+request:
+  query:
+    tenant_id: { type: int, required: false }
+    provider: { type: string, required: false }
+    status: { type: string, required: false }
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT order_no, tenant_id, amount, currency, provider, status, created_at AS ts FROM orders WHERE (?=0 OR tenant_id=?) AND (?='' OR provider=?) AND (?='' OR status=?) ORDER BY created_at DESC"
+      params:
+        tenant_id: "{{ or tenant_id 0 }}"
+        provider1: "{{ or provider '' }}"
+        provider2: "{{ or provider '' }}"
+        status1: "{{ or status '' }}"
+        status2: "{{ or status '' }}"
+      order: [tenant_id, tenant_id, provider1, provider2, status1, status2]
+      out: rows
+  - response:
+      status: 200
+      headers: { Content-Type: application/json }
+      wrap: { code: 0, msg: ok, data: "{{ rows }}" }
+      body: "{{ rows }}"
+    example:
+      - { order_no: "ord_001", amount: 99.9, provider: "alipay", status: "succeeded", ts: "2025-11-01T10:00:00Z" }

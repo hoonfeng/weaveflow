@@ -1,0 +1,19 @@
+module: file
+endpoint: upload
+method: POST
+path: /api/files/upload
+docs:
+  title: 文件上传
+request:
+  file:
+    files: { required: true, maxSize: 32MB }
+steps:
+  - validate: { target: file.files, required: true }
+  - upload.save:
+      ds: local
+      input: "{{ file.files }}"
+      naming: sha256
+      out: saved
+  - response:
+      status: 201
+      wrap: { code: 0, msg: ok, data: "{{ saved }}" }

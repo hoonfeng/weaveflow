@@ -1,0 +1,34 @@
+module: admin
+endpoint: users_me
+method: GET
+path: /api/admin/users/me
+auth: jwt
+roles: [admin]
+permissions: [admin.users.me]
+docs:
+  title: 当前管理员信息
+  description: 返回当前登录管理员的基础信息
+  response:
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            username: { type: string }
+            roles: { type: array }
+            perms: { type: array }
+steps:
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { username: "{{ coalesce username header.Authorization }}", roles: [], perms: [] } }
+      body: { username: "{{ coalesce username header.Authorization }}", roles: [], perms: [] }
+    example:
+      code: 0
+      msg: ok
+      data:
+        username: admin
+        roles: [admin]
+        perms: []

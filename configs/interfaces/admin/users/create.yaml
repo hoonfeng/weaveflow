@@ -1,0 +1,50 @@
+module: admin
+endpoint: users_create
+method: POST
+path: /api/admin/users
+auth: jwt
+roles: [admin]
+permissions: [admin.users.create]
+docs:
+  title: 创建用户
+  response:
+    description: 返回创建的用户名，包含通用包装
+    schema:
+      type: object
+      props:
+        code: { type: int, description: 返回码 }
+        msg: { type: string, description: 返回信息 }
+        data:
+          type: object
+          description: 数据对象
+          props:
+            username: { type: string, description: 用户名 }
+    example:
+      code: 0
+      msg: ok
+      data: { username: "alice" }
+request:
+  body:
+    username: { type: string, required: true, constraints: { minLen: "3", regex: "^[A-Za-z0-9_]+$" } }
+    email: { type: string, required: false, constraints: { format: email } }
+    password: { type: string, required: true, constraints: { minLen: "8" } }
+steps:
+  - validate: { target: username, required: true }
+  - validate: { target: password, required: true }
+  - transform:
+      mapping:
+        salt: "{{ uuid username }}"
+        password_hash: "{{ sha256_concat password salt }}"
+  - sql.exec:
+      ds: main
+      sql: "INSERT INTO users(username,email,password_hash,salt) VALUES(?,?,?,?)"
+      params:
+        username: "{{ username }}"
+        email: "{{ email }}"
+        password_hash: "{{ password_hash }}"
+        salt: "{{ salt }}"
+      order: [username, email, password_hash, salt]
+  - response:
+      status: 201
+      wrap: { code: 0, msg: ok, data: { username: "{{ username }}" } }
+      body: { username: "{{ username }}" }

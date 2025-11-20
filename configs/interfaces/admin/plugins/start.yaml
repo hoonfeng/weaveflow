@@ -1,0 +1,31 @@
+module: admin
+endpoint: plugins_start
+method: POST
+path: /api/admin/plugins/start
+auth: jwt
+roles: [admin]
+permissions: [admin.plugins.start]
+docs:
+  title: 启动插件
+  response:
+    description: 返回启动结果
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data: { type: object }
+    example:
+      code: 0
+      msg: ok
+      data: { started: ["metrics"] }
+request:
+  body:
+    names: { type: array, required: true, desc: 插件名称数组 }
+steps:
+  - plugins.start:
+      names: "{{ names }}"
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { started: "{{ names }}" } }
+      body: { started: "{{ names }}" }

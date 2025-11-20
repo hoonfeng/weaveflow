@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>接口测试</title>
+<style>
+body{font-family:Arial,sans-serif;margin:20px}
+label{display:block;margin-top:8px}
+input,select,textarea{width:100%;padding:6px;margin-top:4px}
+.row{display:flex;gap:12px}
+.col{flex:1}
+.btn{margin-top:12px;padding:8px 12px}
+.resp{white-space:pre-wrap;border:1px solid #ddd;padding:8px;margin-top:12px}
+</style>
+</head>
+<body>
+<h1>接口测试</h1>
+<div class="row">
+  <div class="col">
+    <label>选择接口</label>
+    <select id="endpoint"></select>
+  </div>
+  <div class="col">
+    <label>方法</label>
+    <input id="method" />
+  </div>
+</div>
+<label>路径</label>
+<input id="path" />
+<button class="btn" id="authBtn">添加Authorization: Bearer</button>
+<div class="row">
+  <div class="col">
+    <label>JWT Secret</label>
+    <input id="jwtSecret" placeholder="devsecret" />
+  </div>
+  <div class="col">
+    <label>JWT Roles(逗号分隔)</label>
+    <input id="jwtRoles" placeholder="admin" />
+  </div>
+</div>
+<button class="btn" id="genJwt">生成并填充Authorization</button>
+
+<label>模式</label>
+<select id="mode">
+  <option value="json">JSON</option>
+  <option value="form">FormData</option>
+  <option value="upload">文件上传</option>
+  </select>
+
+<div id="headers"></div>
+<button class="btn" id="addHeader">添加请求头</button>
+
+<label>JSON Body</label>
+<textarea id="body" rows="6">{}</textarea>
+
+<label>文件(可选, 多选)</label>
+<input id="files" type="file" multiple />
+
+<button class="btn" id="send">发送请求</button>
+<button class="btn" id="reload">重载配置</button>
+<button class="btn" id="runAll">运行全部示例</button>
+<button class="btn" id="runReverse">运行文本反转示例</button>
+<button class="btn" id="runQdrant">运行Qdrant检索示例</button>
+<button class="btn" id="runSecure">运行受保护接口示例</button>
+<button class="btn" id="hooksInspect">查看策略链（需Admin JWT）</button>
+<h2>API Keys 面板</h2>
+<div class="row">
+  <div class="col"><input id="tenantId" placeholder="租户ID" /></div>
+  <div class="col"><input id="keyName" placeholder="密钥名称" /></div>
+  <div class="col"><button class="btn" id="createKey">创建Key</button></div>
+</div>
+<div class="row">
+  <div class="col"><button class="btn" id="listKeys">列出Keys</button></div>
+  <div class="col"><input id="revokeId" placeholder="撤销ID" /></div>
+  <div class="col"><button class="btn" id="revokeKey">撤销Key</button></div>
+</div>
+<h2>签名调用工具</h2>
+<div class="row">
+  <div class="col"><input id="apiKey" placeholder="X-Api-Key" /></div>
+  <div class="col"><input id="apiSecret" placeholder="Secret" /></div>
+</div>
+<div class="row">
+  <div class="col"><textarea id="computeBody" rows="4">{"x":2,"y":3}</textarea></div>
+  <div class="col"><button class="btn" id="callCompute">签名调用 /api/service/compute</button></div>
+</div>
+
+<div class="resp" id="out"></div>
+<div class="resp" id="summary"></div>
+<h3>cURL</h3>
+<div class="resp" id="curl"></div>
+<h3>PowerShell</h3>
+<div class="resp" id="ps"></div>
+<button class="btn" id="copyCurl">复制cURL</button> <button class="btn" id="copyPs">复制PowerShell</button>
+
+<script>
+function el(id){return document.getElementById(id)}
+function addHeaderRow(){
+  const div=document.createElement('div');
+  div.className='row';
+  const k=document.createElement('input');k.placeholder='Header-Name';
+  const v=document.createElement('input');v.placeholder='Header-Value';
+  div.appendChild(k);div.appendChild(v);
+  el('headers').appendChild(div);
+}
+el('addHeader').onclick=addHeaderRow; addHeaderRow();
+
+fetch('/docs').then(r=>r.json()).then(list=>{
+  const ep=el('endpoint');
+  list.forEach(e=>{ const o=document.createElement('option'); o.value=JSON.stringify(e); o.textContent=`${e.module} ${e.method} ${e.path}`; ep.appendChild(o); });
+  ep.onchange=()=>{ const e=JSON.parse(ep.value); el('method').value=e.method; el('path').value=e.path; try{
+    const bodyFields=(e.params||[]).filter(p=>p.source==='body'); const sample={}; bodyFields.forEach(p=>{ sample[p.name]= p.type==='int'? 1 : (p.type==='array'? [] : (p.type==='object'? {} : '')) });
+    if(e.path==='/api/text/reverse'){ sample['text']='Hello World' }
+    if(e.path==='/api/vector/qdrant/search'){
+      sample['vec']=[0.1,0.2,0.3]; sample['topK']=10; sample['options']={"filter":{"must":[{"key":"k","match":{"value":"v"}}]},"params":{"hnsw_ef":128}}
+    }
+    el('body').value=JSON.stringify(sample, null, 2);
+    if((e.files||[]).length>0){ el('mode').value='upload'; }
+  }catch{} };
+  ep.onchange();
+});
+
+el('authBtn').onclick=()=>{
+  const row=document.createElement('div'); row.className='row'; const k=document.createElement('input'); k.value='Authorization'; const v=document.createElement('input'); v.value='Bearer '; row.appendChild(k); row.appendChild(v); el('headers').appendChild(row);
+}
+
+function b64url(b){return b.replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_')}
+function utf8(s){return new TextEncoder().encode(s)}
+async function hmacSHA256(key, msg){
+  const cryptoKey = await crypto.subtle.importKey('raw', utf8(key), {name:'HMAC', hash:'SHA-256'}, false, ['sign'])
+  const sig = await crypto.subtle.sign('HMAC', cryptoKey, utf8(msg))
+  const b = String.fromCharCode(...new Uint8Array(sig))
+  return btoa(b)
+}
+el('genJwt').onclick=async ()=>{
+  const secret = el('jwtSecret').value || 'devsecret'
+  const roles = (el('jwtRoles').value||'admin').split(',').map(s=>s.trim()).filter(Boolean)
+  const header = btoa(JSON.stringify({alg:'HS256',typ:'JWT'}))
+  const exp = Math.floor(Date.now()/1000)+30*60
+  const payload = btoa(JSON.stringify({roles,exp}))
+  const unsigned = `${header}.${payload}`
+  const sig = await hmacSHA256(secret, unsigned)
+  const token = `${b64url(unsigned)}.${b64url(sig)}`
+  const row=document.createElement('div'); row.className='row'; const k=document.createElement('input'); k.value='Authorization'; const v=document.createElement('input'); v.value='Bearer '+token; row.appendChild(k); row.appendChild(v); el('headers').appendChild(row);
+}
+
+el('reload').onclick=async ()=>{
+  const headers={}; Array.from(el('headers').children).forEach(r=>{ const k=r.children[0].value; const v=r.children[1].value; if(k) headers[k]=v });
+  const resp = await fetch('/admin/reload',{method:'POST', headers}); const txt=await resp.text(); el('out').textContent=`Status: ${resp.status}\n\n${txt}`;
+}
+
+el('send').onclick=async ()=>{
+  const method=el('method').value||'POST';
+  const path=el('path').value;
+  const mode=el('mode').value;
+  const headers={};
+  Array.from(el('headers').children).forEach(r=>{ const k=r.children[0].value; const v=r.children[1].value; if(k) headers[k]=v });
+let resp;
+  if(mode==='json'){
+    headers['Content-Type']='application/json';
+    resp=await fetch(path,{method,headers,body:el('body').value});
+  }else if(mode==='form'){
+    const fd=new FormData();
+    try{ const obj=JSON.parse(el('body').value); Object.keys(obj).forEach(k=>fd.append(k,obj[k])) }catch{}
+    Array.from(el('files').files).forEach(f=>fd.append('files',f,f.name));
+    resp=await fetch(path,{method,body:fd});
+  }else{ // upload
+    const fd=new FormData();
+    Array.from(el('files').files).forEach(f=>fd.append('files',f,f.name));
+    resp=await fetch(path,{method,body:fd});
+  }
+  const text=await resp.text();
+  el('out').textContent=`Status: ${resp.status}\n\n${text}`;
+  const h=Object.entries(headers).map(([k,v])=>`-H "${k}: ${v}"`).join(' ');
+  if(mode==='json'){
+    el('curl').textContent=`curl -X ${method} ${h} -d '${el('body').value.replace(/\n/g,'')}' '${location.origin+path}'`;
+    el('ps').textContent=`Invoke-WebRequest -Uri '${location.origin+path}' -Method ${method} -ContentType application/json -Body '${el('body').value.replace(/\n/g,'')}'`;
+  }else{
+    el('curl').textContent=`curl -X ${method} ${h} -F "files=@<path-to-file>" '${location.origin+path}'`;
+    el('ps').textContent=`Invoke-WebRequest -Uri '${location.origin+path}' -Method ${method} -InFile '<path-to-file>' -ContentType 'multipart/form-data'`;
+  }
+}
+
+document.getElementById('copyCurl').onclick=()=>{ navigator.clipboard && navigator.clipboard.writeText(el('curl').textContent) };
+document.getElementById('copyPs').onclick=()=>{ navigator.clipboard && navigator.clipboard.writeText(el('ps').textContent) };
+
+async function genToken(){
+  const secret = el('jwtSecret').value || 'devsecret'
+  const roles = (el('jwtRoles').value||'admin').split(',').map(s=>s.trim()).filter(Boolean)
+  const header = btoa(JSON.stringify({alg:'HS256',typ:'JWT'}))
+  const exp = Math.floor(Date.now()/1000)+30*60
+  const payload = btoa(JSON.stringify({roles,exp}))
+  const unsigned = `${header}.${payload}`
+  const sig = await hmacSHA256(secret, unsigned)
+  const token = `${b64url(unsigned)}.${b64url(sig)}`
+  return token
+}
+
+el('runAll').onclick=async ()=>{
+  const data = await (await fetch('/docs')).json()
+  const token = await genToken()
+  let pass=0, fail=0
+  for(const e of data){
+    const method=e.method||'GET'; const path=e.path
+    const headers={}
+    if((e.auth||'').toLowerCase()==='jwt'){ headers['Authorization']='Bearer '+token }
+    try{
+      if(method==='GET'){
+        const r=await fetch(path,{method,headers}); pass+= (r.status>=200 && r.status<400)?1:0; fail+= (r.status>=400)?1:0
+      }else{
+        const bodyFields=(e.params||[]).filter(p=>p.source==='body'); const sample={}
+        bodyFields.forEach(p=>{ sample[p.name]= p.type==='int'? 1 : (p.type==='array'? [] : '') })
+        if((e.files||[]).length>0){ continue }
+        headers['Content-Type']='application/json'
+        const r=await fetch(path,{method,headers,body:JSON.stringify(sample)})
+        pass+= (r.status>=200 && r.status<400)?1:0; fail+= (r.status>=400)?1:0
+      }
+    }catch{ fail++ }
+  }
+  el('summary').textContent=`PASS: ${pass}  FAIL: ${fail}`
+}
+el('runReverse').onclick=async ()=>{
+  const data = await (await fetch('/docs')).json();
+  const e = data.find(x=>x.path==='/api/text/reverse');
+  if(!e) return;
+  el('method').value=e.method; el('path').value=e.path; el('mode').value='json';
+  el('body').value=JSON.stringify({text:'Hello World'});
+  el('send').click();
+};
+el('runSecure').onclick=async ()=>{
+  const token = await genToken();
+  const path = '/api/secure/ping';
+  const headers = {'Authorization':'Bearer '+token};
+  const r = await fetch(path,{method:'GET',headers});
+  const text = await r.text();
+  el('out').textContent=`Status: ${r.status}\n\n${text}`;
+};
+el('runQdrant').onclick=async ()=>{
+  const data = await (await fetch('/docs')).json();
+  const e = data.find(x=>x.path==='/api/vector/qdrant/search');
+  if(!e) return;
+  el('method').value=e.method; el('path').value=e.path; el('mode').value='json';
+  const sample={vec:[0.1,0.2,0.3], topK:10, options:{filter:{must:[{key:'k', match:{value:'v'}}]}, params:{hnsw_ef:128}}};
+  el('body').value=JSON.stringify(sample, null, 2);
+  el('send').click();
+};
+el('hooksInspect').onclick=async ()=>{
+  const data = await (await fetch('/docs')).json();
+  const e = data.find(x=>x.path===el('path').value && x.method===el('method').value);
+  if(!e){ el('out').textContent='未找到接口'; return }
+  const headers={}; Array.from(el('headers').children).forEach(r=>{ const k=r.children[0].value; const v=r.children[1].value; if(k) headers[k]=v });
+  const url = `/admin/hooks/inspect?method=${encodeURIComponent(e.method)}&path=${encodeURIComponent(e.path)}`;
+  const r = await fetch(url,{headers}); const t = await r.text(); el('out').textContent=`Status: ${r.status}\n\n${t}`;
+};
+el('createKey').onclick=async ()=>{
+  const tid = el('tenantId').value; const name = el('keyName').value;
+  const headers={}; Array.from(el('headers').children).forEach(r=>{ const k=r.children[0].value; const v=r.children[1].value; if(k) headers[k]=v });
+  headers['Content-Type']='application/json';
+  const r=await fetch('/api/apikeys',{method:'POST',headers,body:JSON.stringify({tenant_id:Number(tid),name:name})}); el('out').textContent=`Status: ${r.status}\n\n${await r.text()}`;
+};
+el('listKeys').onclick=async ()=>{
+  const tid = el('tenantId').value;
+  const headers={}; Array.from(el('headers').children).forEach(r=>{ const k=r.children[0].value; const v=r.children[1].value; if(k) headers[k]=v });
+  const r=await fetch('/api/apikeys?tenant_id='+encodeURIComponent(tid),{headers}); el('out').textContent=`Status: ${r.status}\n\n${await r.text()}`;
+};
+el('revokeKey').onclick=async ()=>{
+  const id = el('revokeId').value; const headers={}; Array.from(el('headers').children).forEach(r=>{ const k=r.children[0].value; const v=r.children[1].value; if(k) headers[k]=v }); headers['Content-Type']='application/json';
+  const r=await fetch('/api/apikeys/revoke',{method:'POST',headers,body:JSON.stringify({id:Number(id)})}); el('out').textContent=`Status: ${r.status}\n\n${await r.text()}`;
+};
+el('callCompute').onclick=async ()=>{
+  const key = el('apiKey').value; const secret = el('apiSecret').value; const bodyStr = el('computeBody').value;
+  const ts = new Date().toISOString(); const nonce = 'n'+Date.now();
+  const bodyHash = await sha256Base64Url(bodyStr);
+  const msg = `POST\n/api/service/compute\n${ts}\n${nonce}\n${bodyHash}`;
+  const sig = await hmacSha256Base64Url(secret, msg);
+  const r = await fetch('/api/service/compute',{method:'POST',headers:{'Content-Type':'application/json','X-Api-Key':key,'X-Timestamp':ts,'X-Nonce':nonce,'X-Signature':sig},body:bodyStr});
+  el('out').textContent=`Status: ${r.status}\n\n${await r.text()}`;
+};
+async function sha256Base64Url(s){ const buf = new TextEncoder().encode(s); const hash = await crypto.subtle.digest('SHA-256', buf); const b = String.fromCharCode(...new Uint8Array(hash)); return btoa(b).replace(/=+/g,'').replace(/\+/g,'-').replace(/\//g,'_') }
+async function hmacSha256Base64Url(secret, msg){ const key = await crypto.subtle.importKey('raw', utf8(secret), {name:'HMAC', hash:'SHA-256'}, false, ['sign']); const sig = await crypto.subtle.sign('HMAC', key, utf8(msg)); const b = String.fromCharCode(...new Uint8Array(sig)); return btoa(b).replace(/=+/g,'').replace(/\+/g,'-').replace(/\//g,'_') }
+</script>
+</body>
+</html>

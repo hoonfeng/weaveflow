@@ -1,0 +1,37 @@
+module: admin
+endpoint: pay_providers_update
+method: PUT
+path: /api/admin/pay/providers/{id}
+auth: jwt
+roles: [admin]
+permissions: [admin.pay.providers.update]
+docs:
+  title: 更新支付通道配置
+request:
+  path:
+    id: { type: int, required: true }
+  body:
+    name: { type: string, required: false }
+    enabled: { type: bool, required: false }
+    config_json: { type: string, required: false }
+steps:
+  - sql.exec:
+      ds: main
+      sql: "UPDATE payment_providers SET name=COALESCE(?,name), enabled=COALESCE(?,enabled), config_json=COALESCE(?,config_json), updated_at=CURRENT_TIMESTAMP WHERE id=?"
+      params:
+        name: "{{ name }}"
+        enabled: "{{ enabled }}"
+        config_json: "{{ config_json }}"
+        id: "{{ id }}"
+      order: [name, enabled, config_json, id]
+  - sql.query:
+      ds: main
+      sql: "SELECT id, code, name, enabled, config_json, updated_at FROM payment_providers WHERE id=?"
+      params:
+        id: "{{ id }}"
+      order: [id]
+      out: row
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ row.0 }}" }
+      body: "{{ row.0 }}"

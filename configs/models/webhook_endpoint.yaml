@@ -1,0 +1,11 @@
+table: webhook_endpoints
+columns:
+  id: { type: BIGINT, pk: true, auto: true }
+  tenant_id: { type: BIGINT, notNull: true }
+  url: { type: VARCHAR(512), notNull: true }
+  secret: { type: VARCHAR(64) }
+  status: { type: VARCHAR(32), notNull: true }
+  created_at: { type: TIMESTAMP, default: CURRENT_TIMESTAMP }
+indexes:
+  - name: idx_webhook_endpoints_tenant
+    columns: [tenant_id]

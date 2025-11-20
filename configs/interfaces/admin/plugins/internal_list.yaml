@@ -1,0 +1,34 @@
+module: admin
+endpoint: plugins_internal_list
+method: GET
+path: /api/admin/plugins/internal
+auth: jwt
+roles: [admin]
+permissions: [admin.plugins.internal_list]
+docs:
+  title: 内置插件列表
+  response:
+    description: 返回系统必要功能的组成插件列表
+    schema:
+      type: array
+      props:
+        item:
+          type: object
+          props:
+            name: { type: string }
+            endpoints: { type: array }
+steps:
+  - admin.plugins_usage:
+      out: usage
+  - transform:
+      mapping:
+        list: "{{ usage.internal }}"
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ list }}" }
+      body: "{{ list }}"
+    example:
+      code: 0
+      msg: ok
+      data:
+        - { name: metrics, endpoints: ["/metrics"] }

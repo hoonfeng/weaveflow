@@ -1,0 +1,44 @@
+module: plans
+endpoint: list
+method: GET
+path: /api/plans
+auth: jwt
+roles: ["admin"]
+docs:
+  title: 套餐列表
+  description: 列出所有可用套餐
+  response:
+    description: 返回套餐列表
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: array
+          props:
+            item:
+              type: object
+              props:
+                id: { type: int }
+                name: { type: string }
+                monthly_quota: { type: int, description: 月配额 }
+                price: { type: number, description: 单价 }
+    example:
+      code: 0
+      msg: ok
+      data:
+        - id: 2
+          name: basic
+          monthly_quota: 10000
+          price: 9.99
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT id,name,monthly_quota,price FROM plans ORDER BY id ASC"
+      params: {}
+      out: rows
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ rows }}" }
+      body: "{{ rows }}"

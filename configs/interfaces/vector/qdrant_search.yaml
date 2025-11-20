@@ -1,0 +1,53 @@
+module: vector
+endpoint: qdrant_search
+method: POST
+path: /api/vector/qdrant/search
+docs:
+  title: Qdrant 检索示例
+  description: 基于 Qdrant 进行向量检索（需配置 datasources.vector.qdrant）
+  response:
+    description: 返回检索结果列表
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: array
+          props:
+            item:
+              type: object
+              props:
+                id: { type: string, description: 向量ID }
+                score: { type: number, description: 相似度分数 }
+                payload: { type: object, description: 元数据 }
+    example:
+      code: 0
+      msg: ok
+      data:
+        - id: "vec-001"
+          score: 0.92
+          payload: { title: "示例向量" }
+  errors:
+    - { code: E_VECTOR_NOT_AVAILABLE, message: 向量服务不可用, description: 请检查 qdrant 配置 }
+    - { code: E_COLLECTION_NOT_FOUND, message: 集合不存在, description: 请先初始化集合 }
+request:
+  body:
+    vec: { type: array, required: true, desc: 查询向量 }
+    topK: { type: int, required: false, desc: 返回数量 }
+    options: { type: object, required: false, desc: 额外检索选项(filter/params) }
+steps:
+  - vector.search:
+      ds: qdrant
+      collection: default
+      vec: "{{ vec }}"
+      topK: "{{ topK }}"
+      options: "{{ options }}"
+      out: hits
+  - response:
+      status: 200
+      wrap:
+        code: 0
+        msg: ok
+        data: "{{ hits }}"
+      body: "{{ hits }}"

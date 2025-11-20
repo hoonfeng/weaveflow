@@ -1,0 +1,31 @@
+module: admin
+endpoint: plugins_stop
+method: POST
+path: /api/admin/plugins/stop
+auth: jwt
+roles: [admin]
+permissions: [admin.plugins.stop]
+docs:
+  title: 停止插件
+  response:
+    description: 返回停止结果
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data: { type: object }
+    example:
+      code: 0
+      msg: ok
+      data: { stopped: ["metrics"] }
+request:
+  body:
+    names: { type: array, required: true, desc: 插件名称数组 }
+steps:
+  - plugins.stop:
+      names: "{{ names }}"
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { stopped: "{{ names }}" } }
+      body: { stopped: "{{ names }}" }

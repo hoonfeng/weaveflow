@@ -1,0 +1,36 @@
+module: admin
+endpoint: plugins_enable
+method: POST
+path: /api/admin/plugins/enable
+auth: jwt
+roles: [admin]
+permissions: [admin.plugins.enable]
+docs:
+  title: 启用插件
+  response:
+    description: 返回启用结果
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            ok: { type: boolean, description: 是否成功 }
+    example:
+      code: 0
+      msg: ok
+      data: { ok: true }
+request:
+  body:
+    names: { type: array, required: true, desc: 插件名称数组 }
+steps:
+  - plugins.control:
+      action: enable
+      names: "{{ names }}"
+      enabled: true
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { ok: true } }
+      body: { ok: true }

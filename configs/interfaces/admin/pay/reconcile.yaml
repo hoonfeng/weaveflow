@@ -1,0 +1,25 @@
+module: admin
+endpoint: pay_reconcile
+method: POST
+path: /api/admin/pay/reconcile
+auth: jwt
+roles: [admin]
+docs:
+  title: 支付对账
+request:
+  body:
+    start: { type: string, required: true, desc: 开始日期YYYY-MM-DD }
+    end: { type: string, required: true, desc: 结束日期YYYY-MM-DD }
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT DATE(ts) AS d, provider, COUNT(1) AS cnt FROM payments WHERE ts BETWEEN ? AND ? GROUP BY d, provider ORDER BY d DESC"
+      params:
+        start: "{{ start }}"
+        end: "{{ end }}"
+      order: [start, end]
+      out: rows
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ rows }}" }
+      body: "{{ rows }}"

@@ -1,0 +1,33 @@
+module: portal
+endpoint: tenant_role_permissions_list
+method: GET
+path: /api/portal/roles/{role}/permissions
+permissions: [portal.role_permissions.list]
+docs:
+  title: 角色权限列表
+  response:
+    description: 返回该租户下指定角色的权限码列表
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: array
+          props:
+            item: { type: string }
+steps:
+  - validate: { target: header.X-Tenant-Id, required: true }
+  - sql.query:
+      ds: main
+      sql: "SELECT perm_code FROM tenant_role_permissions WHERE tenant_id=? AND role=? ORDER BY perm_code"
+      params: { tenant_id: "{{ header.X-Tenant-Id }}", role: "{{ role }}" }
+      order: [tenant_id, role]
+      out: rows
+  - transform:
+      mapping:
+        list: "{{ map rows 'perm_code' }}"
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ list }}" }
+      body: "{{ list }}"

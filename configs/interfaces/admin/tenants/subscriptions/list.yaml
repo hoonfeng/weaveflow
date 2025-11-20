@@ -1,0 +1,39 @@
+module: admin
+endpoint: tenant_subscriptions_list
+method: GET
+path: /api/admin/tenants/{id}/subscriptions
+auth: jwt
+roles: [admin]
+permissions: [admin.subscriptions.list]
+docs:
+  title: 租户订阅列表
+  response:
+    description: 返回租户订阅记录
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: array
+          props:
+            item:
+              type: object
+              props:
+                id: { type: int }
+                plan_id: { type: int }
+                status: { type: string }
+                start_at: { type: string }
+                end_at: { type: string }
+                next_billing_at: { type: string }
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT id, plan_id, status, start_at, end_at, next_billing_at FROM subscriptions WHERE tenant_id=? ORDER BY id DESC"
+      params: { tenant_id: "{{ id }}" }
+      order: [tenant_id]
+      out: rows
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ rows }}" }
+      body: "{{ rows }}"

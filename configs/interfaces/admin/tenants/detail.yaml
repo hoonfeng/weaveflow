@@ -1,0 +1,41 @@
+module: admin
+endpoint: tenants_detail
+method: GET
+path: /api/admin/tenants/{id}
+auth: jwt
+roles: [admin]
+permissions: [admin.tenants.detail]
+docs:
+  title: 租户详情
+  response:
+    description: 返回单个租户详情
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            id: { type: int }
+            name: { type: string }
+            domain: { type: string }
+            contact_email: { type: string }
+            status: { type: string }
+            description: { type: string }
+            created_at: { type: string }
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT id, name, domain, contact_email, status, description, created_at FROM tenants WHERE id=? LIMIT 1"
+      params:
+        id: "{{ id }}"
+      order: [id]
+      out: rows
+  - transform:
+      mapping:
+        item: "{{ or rows.0 {} }}"
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ item }}" }
+      body: "{{ item }}"

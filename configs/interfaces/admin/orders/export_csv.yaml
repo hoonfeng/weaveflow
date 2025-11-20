@@ -1,0 +1,45 @@
+module: admin
+endpoint: orders_export_csv
+method: GET
+path: /api/admin/orders/export.csv
+auth: jwt
+roles: [admin]
+permissions: [admin.orders.export_csv]
+docs:
+  title: 订单导出CSV
+  response:
+    description: 返回 CSV 文本内容
+    headers:
+      Content-Type: text/csv
+    example: "order_no,tenant_id,amount,currency,provider,status,ts\nord_001,1,99.9,CNY,alipay,succeeded,2025-11-01T10:00:00Z"
+request:
+  query:
+    tenant_id: { type: int, required: false }
+    provider: { type: string, required: false }
+    status: { type: string, required: false }
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT order_no, tenant_id, amount, currency, provider, status, created_at AS ts FROM orders WHERE (?=0 OR tenant_id=?) AND (?='' OR provider=?) AND (?='' OR status=?) ORDER BY created_at DESC"
+      params:
+        tenant_id: "{{ or tenant_id 0 }}"
+        provider1: "{{ or provider '' }}"
+        provider2: "{{ or provider '' }}"
+        status1: "{{ or status '' }}"
+        status2: "{{ or status '' }}"
+      order: [tenant_id, tenant_id, provider1, provider2, status1, status2]
+      out: rows
+  - transform:
+      mapping:
+        csv: "order_no,tenant_id,amount,currency,provider,status,ts"
+  - loop:
+      items: "{{ rows }}"
+      var: item
+      do:
+        - transform:
+            mapping:
+              csv: "{{ csv }}\n{{ item.order_no }},{{ item.tenant_id }},{{ item.amount }},{{ item.currency }},{{ item.provider }},{{ item.status }},{{ item.ts }}"
+  - response:
+      status: 200
+      headers: { Content-Type: text/csv }
+      body: "{{ csv }}"

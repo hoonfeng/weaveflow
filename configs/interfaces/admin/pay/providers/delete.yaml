@@ -1,0 +1,20 @@
+module: admin
+endpoint: pay_providers_delete
+method: DELETE
+path: /api/admin/pay/providers/{id}
+auth: jwt
+roles: [admin]
+permissions: [admin.pay.providers.delete]
+docs:
+  title: 删除支付通道
+steps:
+  - sql.exec:
+      ds: main
+      sql: "DELETE FROM payment_providers WHERE id=?"
+      params:
+        id: "{{ id }}"
+      order: [id]
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: {} }
+      body: {}

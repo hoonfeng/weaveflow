@@ -1,0 +1,6 @@
+table: tenant_limits
+columns:
+  tenant_id: { type: BIGINT, pk: true }
+  rps: { type: DOUBLE, notNull: true }
+  burst: { type: INT, notNull: true }
+  updated_at: { type: TIMESTAMP, default: CURRENT_TIMESTAMP }

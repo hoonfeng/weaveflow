@@ -1,0 +1,48 @@
+module: usage
+endpoint: monthly
+method: GET
+path: /api/usage/monthly
+auth: jwt
+roles: ["admin"]
+docs:
+  title: 月用量汇总
+  description: 按月统计租户用量
+  response:
+    description: 返回每月用量，包含调用次数与平均时长
+    schema:
+      type: object
+      props:
+        code: { type: int, description: 返回码 }
+        msg: { type: string, description: 返回信息 }
+        data:
+          type: array
+          description: 每月统计
+          props:
+            item:
+              type: object
+              props:
+                month: { type: string, description: 月份 }
+                calls: { type: integer, description: 调用次数 }
+                avg_ms: { type: number, description: 平均耗时毫秒 }
+    example:
+      code: 0
+      msg: ok
+      data:
+        - month: "2025-11"
+          calls: 420
+          avg_ms: 13.1
+request:
+  query:
+    tenant_id: { type: int, required: true, desc: 租户ID }
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT DATE_FORMAT(ts,'%Y-%m') AS month, COUNT(1) AS calls, AVG(duration_ms) AS avg_ms FROM usage_logs WHERE tenant_id = ? GROUP BY month ORDER BY month DESC"
+      params:
+        tenant_id: "{{ tenant_id }}"
+      order: [tenant_id]
+      out: rows
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ rows }}" }
+      body: "{{ rows }}"

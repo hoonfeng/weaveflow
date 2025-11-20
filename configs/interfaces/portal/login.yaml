@@ -1,0 +1,58 @@
+module: portal
+endpoint: login
+method: POST
+path: /api/portal/login
+permissions: [portal.login]
+docs:
+  title: 租户用户登录
+  response:
+    description: 返回令牌
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            token: { type: string }
+request:
+  body:
+    username: { type: string, required: true }
+    password: { type: string, required: true }
+steps:
+  - validate: { target: username, required: true }
+  - validate: { target: password, required: true }
+  - sql.query:
+      ds: main
+      sql: "SELECT id, username, email, password_hash, salt FROM users WHERE username = ? LIMIT 1"
+      params: { username: "{{ username }}" }
+      order: [username]
+      out: user_data
+  - transform:
+      mapping:
+        computed_hash: "{{ sha256_concat password user_data.0.salt }}"
+  - branch:
+      if: "{{ eq computed_hash user_data.0.password_hash }}"
+      then:
+        - sql.query:
+            ds: main
+            sql: "SELECT tenant_id, role FROM tenant_users WHERE user_id=? LIMIT 1"
+            params: { uid: "{{ user_data.0.id }}" }
+            order: [uid]
+            out: tu_row
+        - transform:
+            mapping:
+              tenant_id: "{{ toint tu_row.0.tenant_id }}"
+        - auth.jwt:
+            claims: { uid: "{{ user_data.0.id }}", username: "{{ user_data.0.username }}", tenant_id: "{{ tenant_id }}", roles: [], perms: [] }
+            out: token
+        - response:
+            status: 200
+            wrap: { code: 0, msg: ok, data: { token: "{{ token }}" } }
+            body: { token: "{{ token }}" }
+      else:
+        - response:
+            status: 401
+            wrap: { code: 401, msg: unauthorized, data: {} }
+            body: { error: unauthorized }

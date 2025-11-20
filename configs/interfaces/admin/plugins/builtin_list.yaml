@@ -1,0 +1,31 @@
+module: admin
+endpoint: builtin_plugins
+method: GET
+path: /api/admin/plugins/builtin
+auth: jwt
+roles: [admin]
+permissions: [admin.plugins.builtin_list]
+docs:
+  title: 内置插件列表
+  response:
+    description: 返回内置插件能力列表
+    schema:
+      type: array
+      props:
+        item:
+          type: object
+          props:
+            name: { type: string }
+            desc: { type: string }
+steps:
+  - admin.builtin:
+      out: list
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ list }}" }
+      body: "{{ list }}"
+    example:
+      code: 0
+      msg: ok
+      data:
+        - { name: sysinfo, desc: 系统信息采集 }

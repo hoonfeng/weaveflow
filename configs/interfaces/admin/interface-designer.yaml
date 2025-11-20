@@ -1,0 +1,30 @@
+# 接口设计器API配置
+
+# 获取接口列表
+module: admin
+endpoint: interface_list
+method: GET
+path: /api/admin/interfaces
+auth: jwt
+roles: [admin]
+permissions: [interface.read]
+docs:
+  title: 获取接口列表
+  description: 获取所有接口配置列表
+  response:
+    description: 返回接口列表
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data: { type: object }
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT * FROM interfaces WHERE status = 'active' ORDER BY created_at DESC"
+      out: interfaces
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ interfaces }}" }
+      body: "{{ interfaces }}"

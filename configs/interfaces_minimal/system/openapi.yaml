@@ -1,0 +1,12 @@
+module: system
+endpoint: openapi
+method: GET
+path: /openapi.json
+docs:
+  title: OpenAPI 规范
+steps:
+  - admin.openapi:
+      out: spec
+  - response:
+      status: 200
+      body: "{{ spec }}"

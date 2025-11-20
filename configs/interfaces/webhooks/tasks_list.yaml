@@ -1,0 +1,58 @@
+module: webhooks
+endpoint: tasks_list
+method: GET
+path: /api/webhooks/tasks
+auth: jwt
+roles: ["admin"]
+permissions: [webhooks.tasks_list]
+docs:
+  title: Webhook任务列表
+  description: 查询指定租户的Webhook任务
+  response:
+    description: 返回任务列表与端点URL
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: array
+          props:
+            item:
+              type: object
+              props:
+                id: { type: int }
+                event: { type: string }
+                status: { type: string }
+                retries: { type: int }
+                next_try_at: { type: string }
+                created_at: { type: string }
+                url: { type: string }
+    example:
+      code: 0
+      msg: ok
+      data:
+        - id: 12
+          event: payment.succeeded
+          status: pending
+          retries: 0
+          next_try_at: null
+          created_at: "2025-11-17 10:00:00"
+          url: "https://example.com/cb"
+  errors:
+    - { code: E_DB_UNAVAILABLE, message: 数据库不可用, description: 查询失败 }
+request:
+  query:
+    tenant_id: { type: int, required: true, desc: 租户ID }
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT t.id,t.event,t.status,t.retries,t.next_try_at,t.created_at,e.url FROM webhook_tasks t JOIN webhook_endpoints e ON t.endpoint_id=e.id WHERE e.tenant_id=? ORDER BY t.id DESC"
+      params:
+        tenant_id: "{{ tenant_id }}"
+      order: [tenant_id]
+      out: rows
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ rows }}" }
+      body: "{{ rows }}"

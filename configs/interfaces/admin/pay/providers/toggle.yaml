@@ -1,0 +1,26 @@
+module: admin
+endpoint: pay_providers_toggle
+method: POST
+path: /api/admin/pay/providers/{id}/toggle
+auth: jwt
+roles: [admin]
+permissions: [admin.pay.providers.toggle]
+docs:
+  title: 启用/禁用支付通道
+request:
+  path:
+    id: { type: int, required: true }
+  body:
+    enabled: { type: bool, required: true }
+steps:
+  - sql.exec:
+      ds: main
+      sql: "UPDATE payment_providers SET enabled=? , updated_at=CURRENT_TIMESTAMP WHERE id=?"
+      params:
+        enabled: "{{ enabled }}"
+        id: "{{ id }}"
+      order: [enabled, id]
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { id: "{{ id }}", enabled: "{{ enabled }}" } }
+      body: { id: "{{ id }}", enabled: "{{ enabled }}" }

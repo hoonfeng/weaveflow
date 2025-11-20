@@ -1,0 +1,9 @@
+table: user_roles
+columns:
+  user_id: { type: BIGINT, notNull: true }
+  role_id: { type: BIGINT, notNull: true }
+indexes:
+  - name: idx_user_roles_user
+    columns: [user_id]
+  - name: idx_user_roles_role
+    columns: [role_id]

@@ -1,0 +1,48 @@
+module: usage
+endpoint: daily
+method: GET
+path: /api/usage/daily
+auth: jwt
+roles: ["admin"]
+docs:
+  title: 日用量汇总
+  description: 按天统计租户用量
+  response:
+    description: 返回每日用量，包含调用次数与平均时长
+    schema:
+      type: object
+      props:
+        code: { type: int, description: 返回码 }
+        msg: { type: string, description: 返回信息 }
+        data:
+          type: array
+          description: 每日统计
+          props:
+            item:
+              type: object
+              props:
+                day: { type: string, description: 日期 }
+                calls: { type: integer, description: 调用次数 }
+                avg_ms: { type: number, description: 平均耗时毫秒 }
+    example:
+      code: 0
+      msg: ok
+      data:
+        - day: "2025-11-17"
+          calls: 42
+          avg_ms: 12.5
+request:
+  query:
+    tenant_id: { type: int, required: true, desc: 租户ID }
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT DATE_FORMAT(ts,'%Y-%m-%d') AS day, COUNT(1) AS calls, AVG(duration_ms) AS avg_ms FROM usage_logs WHERE tenant_id = ? GROUP BY day ORDER BY day DESC"
+      params:
+        tenant_id: "{{ tenant_id }}"
+      order: [tenant_id]
+      out: rows
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ rows }}" }
+      body: "{{ rows }}"

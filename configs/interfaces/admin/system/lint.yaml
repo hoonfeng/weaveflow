@@ -1,0 +1,40 @@
+module: admin
+endpoint: lint
+method: GET
+path: /api/admin/lint
+auth: jwt
+roles: [admin]
+permissions: [admin.lint]
+docs:
+  title: 接口规范检查
+  description: 返回当前已加载接口的规范问题列表
+  response:
+    description: 返回接口配置的检查结果列表
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: array
+          props:
+            item:
+              type: object
+              props:
+                level: { type: string, description: 级别(error|warn|info) }
+                message: { type: string, description: 描述 }
+                path: { type: string, description: 位置 }
+    example:
+      code: 0
+      msg: ok
+      data:
+        - level: error
+          message: missing permissions field
+          path: configs/interfaces/admin/system/queue_status.yaml
+steps:
+  - admin.lint:
+      out: issues
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ issues }}" }
+      body: "{{ issues }}"

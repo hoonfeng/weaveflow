@@ -1,0 +1,47 @@
+module: file
+endpoint: upload
+method: POST
+path: /api/files/upload
+docs:
+  title: 文件上传
+  description: 接收并保存上传的文件到本地存储
+  response:
+    description: 返回保存后的文件标识列表
+    schema:
+      type: object
+      props:
+        code: { type: int, desc: 状态码 }
+        msg: { type: string, desc: 描述 }
+        data:
+          type: array
+          desc: 文件ID列表
+          props:
+            item: { type: string, desc: 文件ID }
+    example:
+      code: 0
+      msg: ok
+      data: ["a1b2c3", "d4e5f6"]
+  errors:
+    - { code: E_FILE_TOO_LARGE, message: 文件过大, description: 超过最大 32MB }
+    - { code: E_FILE_TYPE_DENIED, message: 文件类型不允许, description: 仅允许 image/png,image/jpeg }
+request:
+  file:
+    files: { required: true, maxSize: 32MB, types: ["image/png", "image/jpeg"], desc: 上传的文件列表 }
+steps:
+  - validate:
+      target: file.files
+      required: true
+  - upload.save:
+      ds: local
+      input: "{{ file.files }}"
+      naming: sha256
+      out: saved
+  - response:
+      status: 201
+      headers:
+        X-Uploaded: "true"
+      wrap:
+        code: 0
+        msg: ok
+        data: "{{ saved }}"
+      body: "{{ saved }}"

@@ -1,0 +1,31 @@
+module: admin
+endpoint: tenants_delete
+method: DELETE
+path: /api/admin/tenants/{id}
+auth: jwt
+roles: [admin]
+permissions: [admin.tenants.delete]
+docs:
+  title: 删除租户
+  response:
+    description: 返回删除的租户ID
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            id: { type: integer, description: 租户ID }
+steps:
+  - sql.exec:
+      ds: main
+      sql: "DELETE FROM tenants WHERE id=?"
+      params:
+        id: "{{ id }}"
+      order: [id]
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { id: "{{ id }}" } }
+      body: { id: "{{ id }}" }

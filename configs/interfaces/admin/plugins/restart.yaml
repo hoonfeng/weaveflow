@@ -1,0 +1,31 @@
+module: admin
+endpoint: plugins_restart
+method: POST
+path: /api/admin/plugins/restart
+auth: jwt
+roles: [admin]
+permissions: [admin.plugins.restart]
+docs:
+  title: 重启插件
+  response:
+    description: 返回重启结果
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data: { type: object }
+    example:
+      code: 0
+      msg: ok
+      data: { restarted: ["metrics"] }
+request:
+  body:
+    names: { type: array, required: true, desc: 插件名称数组 }
+steps:
+  - plugins.restart:
+      names: "{{ names }}"
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { restarted: "{{ names }}" } }
+      body: { restarted: "{{ names }}" }

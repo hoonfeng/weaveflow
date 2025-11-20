@@ -1,0 +1,35 @@
+module: admin
+endpoint: hooks_inspect
+method: POST
+path: /api/admin/hooks/inspect
+auth: jwt
+roles: [admin]
+permissions: [admin.hooks.inspect]
+docs:
+  title: Hooks 检视
+  description: 查看当前接口的策略链
+  response:
+    description: 返回策略链与匹配结果
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            chain: { type: array, description: 策略链顺序 }
+            match: { type: object, description: 匹配信息 }
+request:
+  body:
+    method: { type: string, required: false }
+    path: { type: string, required: false }
+steps:
+  - hooks.inspect:
+      method: "{{ method }}"
+      path: "{{ path }}"
+      out: res
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ res }}" }
+      body: "{{ res }}"

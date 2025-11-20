@@ -1,0 +1,62 @@
+module: admin
+endpoint: permissions_sync
+method: POST
+path: /api/admin/permissions/sync
+auth: jwt
+roles: [admin]
+permissions: [admin.permissions.sync]
+docs:
+  title: 同步权限声明入库
+  response:
+    description: 返回同步的数量
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            scanned: { type: int }
+            synced: { type: int }
+steps:
+  - admin.permissions_scan:
+      out: decls
+  - transform:
+      mapping:
+        scanned_cnt: "{{ len decls }}"
+  - sql.query:
+      ds: main
+      sql: "SELECT COUNT(*) AS total FROM permissions"
+      params: {}
+      out: prev_totals
+  - transaction: { action: begin, ds: main }
+  - loop:
+      items: "{{ decls }}"
+      var: item
+      do:
+        - sql.exec:
+            ds: main
+            sql: "INSERT INTO permissions(code,name) VALUES(?,?) ON DUPLICATE KEY UPDATE name=VALUES(name)"
+            params:
+              code: "{{ item.code }}"
+              name: "{{ item.name }}"
+            order: [code, name]
+  - transaction: { action: commit, ds: main }
+  - sql.query:
+      ds: main
+      sql: "SELECT COUNT(*) AS total FROM permissions"
+      params: {}
+      out: post_totals
+  - transform:
+      mapping:
+        scanned: "{{ len decls }}"
+        synced: "{{ sub (post_totals.0.total) (or (prev_totals.0.total) 0) }}"
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { scanned: "{{ scanned }}", synced: "{{ synced }}" } }
+      body: { scanned: "{{ scanned }}", synced: "{{ synced }}" }
+    example:
+      code: 0
+      msg: ok
+      data: { scanned: 120, synced: 12 }

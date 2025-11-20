@@ -1,0 +1,40 @@
+module: webhooks
+endpoint: delete
+method: POST
+path: /api/webhooks/delete
+auth: jwt
+roles: ["admin"]
+docs:
+  title: 删除Webhook端点
+  description: 删除指定端点
+  response:
+    description: 返回删除的端点ID
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            id: { type: int }
+    example:
+      code: 0
+      msg: ok
+      data: { id: 3 }
+  errors:
+    - { code: E_NOT_FOUND, message: 端点不存在, description: ID 无效 }
+request:
+  body:
+    id: { type: int, required: true, desc: 端点ID }
+steps:
+  - sql.exec:
+      ds: main
+      sql: "DELETE FROM webhook_endpoints WHERE id=?"
+      params:
+        id: "{{ id }}"
+      order: [id]
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { id: "{{ id }}" } }
+      body: { id: "{{ id }}" }

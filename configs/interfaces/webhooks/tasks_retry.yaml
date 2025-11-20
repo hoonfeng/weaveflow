@@ -1,0 +1,41 @@
+module: webhooks
+endpoint: tasks_retry
+method: POST
+path: /api/webhooks/tasks/retry
+auth: jwt
+roles: ["admin"]
+docs:
+  title: 重试Webhook任务
+  response:
+    description: 返回重试的任务ID，包含通用包装
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            id: { type: integer, description: 任务ID }
+    example:
+      code: 0
+      msg: ok
+      data:
+        id: 123
+  errors:
+    - { code: E_TASK_NOT_FOUND, message: 任务不存在, description: ID 无效 }
+  description: 将任务状态设置为retry并立即调度
+request:
+  body:
+    id: { type: int, required: true, desc: 任务ID, constraints: { min: "1" } }
+steps:
+  - sql.exec:
+      ds: main
+      sql: "UPDATE webhook_tasks SET status='retry', next_try_at=NOW() WHERE id=?"
+      params:
+        id: "{{ id }}"
+      order: [id]
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { id: "{{ id }}" } }
+      body: { id: "{{ id }}" }

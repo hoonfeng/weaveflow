@@ -1,0 +1,45 @@
+module: admin
+endpoint: tenant_limits_upsert
+method: POST
+path: /api/admin/tenant_limits/upsert
+auth: jwt
+roles: ["admin"]
+permissions: [admin.tenant_limits.upsert]
+docs:
+  title: 设置租户限流
+  description: 设定租户级rps与burst
+  response:
+    description: 返回更新后的限流设置
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            tenant_id: { type: int }
+            rps: { type: number }
+            burst: { type: int }
+    example:
+      code: 0
+      msg: ok
+      data: { tenant_id: 8, rps: 5.0, burst: 100 }
+request:
+  body:
+    tenant_id: { type: int, required: true, desc: 租户ID }
+    rps: { type: float, required: true, desc: 每秒请求数 }
+    burst: { type: int, required: true, desc: 突发 }
+steps:
+  - sql.exec:
+      ds: main
+      sql: "INSERT INTO tenant_limits(tenant_id,rps,burst) VALUES(?,?,?) ON DUPLICATE KEY UPDATE rps=VALUES(rps), burst=VALUES(burst)"
+      params:
+        tenant_id: "{{ tenant_id }}"
+        rps: "{{ rps }}"
+        burst: "{{ burst }}"
+      order: [tenant_id, rps, burst]
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { tenant_id: "{{ tenant_id }}", rps: "{{ rps }}", burst: "{{ burst }}" } }
+      body: { tenant_id: "{{ tenant_id }}", rps: "{{ rps }}", burst: "{{ burst }}" }

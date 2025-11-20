@@ -1,0 +1,13 @@
+table: payment_providers
+columns:
+  id: { type: BIGINT, pk: true, auto: true }
+  code: { type: VARCHAR(64), notNull: true }
+  name: { type: VARCHAR(128), notNull: true }
+  enabled: { type: TINYINT, notNull: true, default: 1 }
+  config_json: { type: TEXT }
+  created_at: { type: TIMESTAMP, default: CURRENT_TIMESTAMP }
+  updated_at: { type: TIMESTAMP, default: CURRENT_TIMESTAMP }
+indexes:
+  - name: uk_payment_providers_code
+    unique: true
+    columns: [code]

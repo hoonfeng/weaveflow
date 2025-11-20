@@ -1,0 +1,35 @@
+module: admin
+endpoint: tenant_users_bind
+method: POST
+path: /api/admin/tenants/{id}/users
+auth: jwt
+roles: [admin]
+permissions: [admin.tenant_users.bind]
+docs:
+  title: 绑定租户成员
+  response:
+    description: 返回绑定结果
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data: { type: object }
+    example:
+      code: 0
+      msg: ok
+      data: {}
+request:
+  body:
+    user_id: { type: int, required: true, desc: 用户ID }
+    role: { type: string, required: true, desc: 成员角色 }
+steps:
+  - sql.exec:
+      ds: main
+      sql: "INSERT INTO tenant_users(tenant_id,user_id,role) VALUES(?,?,?) ON DUPLICATE KEY UPDATE role=VALUES(role)"
+      params: { tenant_id: "{{ id }}", user_id: "{{ user_id }}", role: "{{ role }}" }
+      order: [tenant_id, user_id, role]
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: {} }
+      body: {}

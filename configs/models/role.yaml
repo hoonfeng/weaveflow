@@ -1,0 +1,4 @@
+table: roles
+columns:
+  id: { type: BIGINT, pk: true, auto: true }
+  name: { type: VARCHAR(64), notNull: true, unique: true }

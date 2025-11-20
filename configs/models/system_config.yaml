@@ -1,0 +1,14 @@
+table: system_config
+columns:
+  id: { type: BIGINT, pk: true, auto: true }
+  key: { type: VARCHAR(128), notNull: true, unique: true }
+  value: { type: TEXT, notNull: true }
+  description: { type: VARCHAR(255) }
+  status: { type: VARCHAR(32), notNull: true, default: "'active'" }
+  created_at: { type: TIMESTAMP, default: CURRENT_TIMESTAMP }
+  updated_at: { type: TIMESTAMP, default: CURRENT_TIMESTAMP, onUpdate: CURRENT_TIMESTAMP }
+indexes:
+  - name: idx_system_config_key
+    columns: [key]
+  - name: idx_system_config_status
+    columns: [status]

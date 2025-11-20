@@ -1,0 +1,42 @@
+module: admin
+endpoint: plugins_add
+method: POST
+path: /api/admin/plugins/add
+auth: jwt
+roles: [admin]
+permissions: [admin.plugins.add]
+docs:
+  title: 动态添加插件
+  response:
+    description: 返回添加结果
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data: { type: object }
+    example:
+      code: 0
+      msg: ok
+      data: { added: "metrics" }
+request:
+  body:
+    name: { type: string, required: true, desc: 插件名称 }
+    windows: { type: string, required: true, desc: Windows可执行文件路径 }
+    unix: { type: string, required: false, desc: Unix可执行文件路径 }
+    instances: { type: int, required: false, desc: 实例数量 }
+    timeout: { type: string, required: false, desc: 超时时间，如300ms }
+    queueSize: { type: int, required: false, desc: 队列大小 }
+    functions: { type: array, required: true, desc: 函数列表 }
+steps:
+  - plugins.add:
+      name: "{{ name }}"
+      executable: { windows: "{{ windows }}", unix: "{{ unix }}" }
+      instances: "{{ instances }}"
+      timeout: "{{ timeout }}"
+      queueSize: "{{ queueSize }}"
+      functions: "{{ functions }}"
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { added: "{{ name }}" } }
+      body: { added: "{{ name }}" }

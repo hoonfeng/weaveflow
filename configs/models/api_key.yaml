@@ -1,0 +1,14 @@
+table: api_keys
+columns:
+  id: { type: BIGINT, pk: true, auto: true }
+  tenant_id: { type: BIGINT, notNull: true }
+  name: { type: VARCHAR(128), notNull: true }
+  key_hash: { type: VARCHAR(64), notNull: true, unique: true }
+  secret: { type: VARCHAR(64), notNull: true }
+  scopes: { type: TEXT }
+  expired_at: { type: TIMESTAMP }
+  status: { type: VARCHAR(32), notNull: true }
+  created_at: { type: TIMESTAMP, default: CURRENT_TIMESTAMP }
+indexes:
+  - name: idx_apikeys_tenant
+    columns: [tenant_id]

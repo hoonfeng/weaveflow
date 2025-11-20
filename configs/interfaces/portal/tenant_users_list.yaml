@@ -1,0 +1,37 @@
+module: portal
+endpoint: tenant_users_list
+method: GET
+path: /api/portal/users
+permissions: [portal.tenant_users.list]
+docs:
+  title: 子账户列表
+  response:
+    description: 返回该租户下的用户列表
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: array
+          props:
+            item:
+              type: object
+              props:
+                uid: { type: int }
+                username: { type: string }
+                email: { type: string }
+                role: { type: string }
+                created_at: { type: string }
+steps:
+  - validate: { target: header.X-Tenant-Id, required: true }
+  - sql.query:
+      ds: main
+      sql: "SELECT tu.user_id AS uid, u.username, u.email, tu.role, tu.created_at FROM tenant_users tu JOIN users u ON tu.user_id=u.id WHERE tu.tenant_id=? ORDER BY uid DESC"
+      params: { tenant_id: "{{ header.X-Tenant-Id }}" }
+      order: [tenant_id]
+      out: rows
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ rows }}" }
+      body: "{{ rows }}"

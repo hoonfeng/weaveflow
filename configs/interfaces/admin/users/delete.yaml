@@ -1,0 +1,35 @@
+module: admin
+endpoint: users_delete
+method: DELETE
+path: /api/admin/users/{id}
+auth: jwt
+roles: [admin]
+permissions: [admin.users.delete]
+docs:
+  title: 删除用户
+  response:
+    description: 返回删除的用户ID，包含通用包装
+    schema:
+      type: object
+      props:
+        code: { type: int, description: 返回码 }
+        msg: { type: string, description: 返回信息 }
+        data:
+          type: object
+          props:
+            id: { type: integer, description: 用户ID }
+steps:
+  - sql.exec:
+      ds: main
+      sql: "DELETE FROM users WHERE id=?"
+      params:
+        id: "{{ id }}"
+      order: [id]
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { id: "{{ id }}" } }
+      body: { id: "{{ id }}" }
+    example:
+      code: 0
+      msg: ok
+      data: { id: 10 }

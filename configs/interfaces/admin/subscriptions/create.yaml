@@ -1,0 +1,41 @@
+module: admin
+endpoint: subscriptions_create
+method: POST
+path: /api/admin/subscriptions
+auth: jwt
+roles: [admin]
+permissions: [admin.subscriptions.create]
+docs:
+  title: 创建订阅
+  response:
+    description: 返回租户订阅创建结果
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            tenant_id: { type: int }
+            plan_id: { type: int }
+    example:
+      code: 0
+      msg: ok
+      data: { tenant_id: 8, plan_id: 2 }
+request:
+  body:
+    tenant_id: { type: int, required: true }
+    plan_id: { type: int, required: true }
+steps:
+  - sql.exec:
+      ds: main
+      sql: "INSERT INTO subscriptions(tenant_id,plan_id,status,start_at) VALUES(?,?, 'active', NOW())"
+      params:
+        tenant_id: "{{ tenant_id }}"
+        plan_id: "{{ plan_id }}"
+      order: [tenant_id, plan_id]
+  - response:
+      status: 201
+      wrap: { code: 0, msg: ok, data: { tenant_id: "{{ tenant_id }}", plan_id: "{{ plan_id }}" } }
+      body: { tenant_id: "{{ tenant_id }}", plan_id: "{{ plan_id }}" }

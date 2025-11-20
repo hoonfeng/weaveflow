@@ -1,0 +1,54 @@
+module: admin
+endpoint: health
+method: GET
+path: /api/admin/health
+auth: jwt
+roles: [admin]
+permissions: [admin.health]
+docs:
+  title: 依赖健康聚合
+  response:
+    description: 返回数据库与插件运行时的健康统计
+    schema:
+      type: object
+      props:
+        code: { type: int, description: 返回码 }
+        msg: { type: string, description: 返回信息 }
+        data:
+          type: object
+          description: 健康数据
+          props:
+            sql_main: { type: integer, description: 主库探测 1=ok }
+            plugin_count: { type: integer, description: 插件数量 }
+            plugin_disabled_count: { type: integer, description: 被禁用插件数量 }
+    example:
+      code: 0
+      msg: ok
+      data:
+        sql_main: 1
+        plugin_count: 5
+        plugin_disabled_count: 0
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT 1 AS ok"
+      params: {}
+      out: sqlok
+  - transform:
+      mapping:
+        status: { sql_main: "ok" }
+  - plugins.status:
+      out: plugins
+  - transform:
+      mapping:
+        plugin_count: "{{ len plugins }}"
+        plugin_disabled_count: "{{ len plugins.disabled }}"
+  - plugin.call:
+      plugin: sysinfo
+      function: resources
+      params: {}
+      out: sys
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { sql_main: "{{ status.sql_main }}", plugin_count: "{{ plugin_count }}", plugin_disabled_count: "{{ plugin_disabled_count }}", cpu: "{{ sys.cpu_percent_str }}", cpu_percent: "{{ sys.cpu_percent_str }}", memory_used_bytes: "{{ sys.memory.used_bytes }}", memory_total_bytes: "{{ sys.memory.total_bytes }}", storage_free_bytes: "{{ sys.storage.free_bytes }}", storage_total_bytes: "{{ sys.storage.total_bytes }}", network_rx_bps: "{{ sys.network.bytes_recv }}", network_tx_bps: "{{ sys.network.bytes_sent }}", storage_read_bps: "{{ sys.storage_io.read_bps }}", storage_write_bps: "{{ sys.storage_io.write_bps }}", gpu_percent: "{{ sys.gpu.compute_percent }}", gpu_memory_used_bytes: "{{ sys.gpu.memory_used_bytes }}", gpu_memory_total_bytes: "{{ sys.gpu.memory_total_bytes }}", gpus: "{{ sys.gpus }}" } }
+      body: { sql_main: "{{ status.sql_main }}", plugin_count: "{{ plugin_count }}", plugin_disabled_count: "{{ plugin_disabled_count }}", cpu: "{{ sys.cpu_percent_str }}", cpu_percent: "{{ sys.cpu_percent_str }}", memory_used_bytes: "{{ sys.memory.used_bytes }}", memory_total_bytes: "{{ sys.memory.total_bytes }}", storage_free_bytes: "{{ sys.storage.free_bytes }}", storage_total_bytes: "{{ sys.storage.total_bytes }}", network_rx_bps: "{{ sys.network.bytes_recv }}", network_tx_bps: "{{ sys.network.bytes_sent }}", storage_read_bps: "{{ sys.storage_io.read_bps }}", storage_write_bps: "{{ sys.storage_io.write_bps }}", gpu_percent: "{{ sys.gpu.compute_percent }}", gpu_memory_used_bytes: "{{ sys.gpu.memory_used_bytes }}", gpu_memory_total_bytes: "{{ sys.gpu.memory_total_bytes }}", gpus: "{{ sys.gpus }}" }

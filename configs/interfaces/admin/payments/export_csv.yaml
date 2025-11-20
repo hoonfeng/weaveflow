@@ -1,0 +1,45 @@
+module: admin
+endpoint: payments_export_csv
+method: GET
+path: /api/admin/payments/export.csv
+auth: jwt
+roles: [admin]
+docs:
+  title: 支付记录导出CSV
+  response:
+    description: 返回 CSV 文本内容
+    headers:
+      Content-Type: text/csv
+    example: "order_no,provider,status,txn_id,ts\nord_001,alipay,succeeded,tx_001,2025-11-01T10:00:00Z"
+request:
+  query:
+    order_no: { type: string, required: false }
+    provider: { type: string, required: false }
+    status: { type: string, required: false }
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT order_no, provider, status, txn_id, ts FROM payments WHERE (?='' OR order_no=?) AND (?='' OR provider=?) AND (?='' OR status=?) ORDER BY ts DESC"
+      params:
+        order_no1: "{{ order_no }}"
+        order_no2: "{{ order_no }}"
+        provider1: "{{ provider }}"
+        provider2: "{{ provider }}"
+        status1: "{{ status }}"
+        status2: "{{ status }}"
+      order: [order_no1, order_no2, provider1, provider2, status1, status2]
+      out: rows
+  - transform:
+      mapping:
+        csv: "order_no,provider,status,txn_id,ts"
+  - loop:
+      items: "{{ rows }}"
+      var: item
+      do:
+        - transform:
+            mapping:
+              csv: "{{ csv }}\n{{ item.order_no }},{{ item.provider }},{{ item.status }},{{ item.txn_id }},{{ item.ts }}"
+  - response:
+      status: 200
+      headers: { Content-Type: text/csv }
+      body: "{{ csv }}"

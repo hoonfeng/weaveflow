@@ -1,0 +1,2 @@
+before:
+  - { kind: plugin, name: "quota.monthly", match: { labelsAny: ["paid"] }, params: { plugin: "quota", function: "monthly", dsn: "${DB_DSN}", headers: { tenant_id: "X-Tenant-Id", key: "X-Api-Key" } }, order: 10 }

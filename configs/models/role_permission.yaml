@@ -1,0 +1,11 @@
+table: role_permissions
+columns:
+  role_id: { type: BIGINT, notNull: true }
+  perm_id: { type: BIGINT, notNull: true }
+indexes:
+  - name: idx_role_perm_role
+    columns: [role_id]
+  - name: idx_role_perm_perm
+    columns: [perm_id]
+  - name: uk_role_perm
+    columns: [role_id, perm_id]

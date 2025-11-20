@@ -1,0 +1,38 @@
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT id, username, email, salt FROM users WHERE username = ? LIMIT 1"
+      params:
+        username: admin
+      out: u
+  - transform:
+      mapping:
+        ulen: "{{ len u }}"
+  - branch:
+      if: "{{ gt ulen 0 }}"
+      then:
+        - transform:
+            mapping:
+              salt: "{{ uuid 'admin' }}"
+              ph: "{{ sha256_concat 'admin123' salt }}"
+              uid: "{{ u.0.id }}"
+        - sql.exec:
+            ds: main
+            sql: "UPDATE users SET salt = ?, password_hash = ? WHERE id = ?"
+            params:
+              salt: "{{ salt }}"
+              password_hash: "{{ ph }}"
+              id: "{{ uid }}"
+      else:
+        - transform:
+            mapping:
+              salt: "{{ uuid 'admin' }}"
+              ph: "{{ sha256_concat 'admin123' salt }}"
+        - sql.exec:
+            ds: main
+            sql: "INSERT INTO users(username, email, password_hash, salt) VALUES(?, ?, ?, ?)"
+            params:
+              username: admin
+              email: admin@example.com
+              password_hash: "{{ ph }}"
+              salt: "{{ salt }}"

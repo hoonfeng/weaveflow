@@ -1,0 +1,33 @@
+module: admin
+endpoint: remote_test
+method: GET
+path: /api/admin/remote/test
+auth: jwt
+roles: [admin]
+docs:
+  title: 远程调用测试（熔断回退）
+  response:
+    description: 返回远程调用结果或回退内容
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data: { type: object, description: 远程响应或fallback }
+steps:
+  - http.request:
+      method: GET
+      url: "http://127.0.0.1:65535/unavailable"
+      timeoutMs: 200
+      retry: 1
+      backoff: 200
+      circuit:
+        key: "remote.unavailable"
+        threshold: 1
+        openMs: 2000
+        fallback: { status: 200, body: "fallback" }
+      out: r
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ r }}" }
+      body: "{{ r }}"

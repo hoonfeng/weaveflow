@@ -1,0 +1,73 @@
+module: admin
+endpoint: payments_refund
+method: POST
+path: /api/admin/payments/{txn_id}/refund
+auth: jwt
+roles: [admin]
+docs:
+  title: 支付退款
+  response:
+    description: 返回退款信息
+    schema:
+      type: object
+      props:
+        code: { type: int }
+        msg: { type: string }
+        data:
+          type: object
+          props:
+            refund_id: { type: string, description: 退款ID }
+            order_no: { type: string, description: 订单号 }
+            amount: { type: number, description: 金额 }
+            status: { type: string, description: 状态 }
+request:
+  path:
+    txn_id: { type: string, required: true }
+  body:
+    amount: { type: float, required: true }
+    reason: { type: string, required: false }
+steps:
+  - sql.query:
+      ds: main
+      sql: "SELECT order_no, provider FROM payments WHERE txn_id=? LIMIT 1"
+      params:
+        txn_id: "{{ txn_id }}"
+      order: [txn_id]
+      out: pay
+  - transform:
+      mapping:
+        order_no: "{{ or pay.0.order_no '' }}"
+        provider: "{{ or pay.0.provider '' }}"
+  - branch:
+      if: "{{ eq provider alipay }}"
+      then:
+        - plugin.call:
+            plugin: pay
+            function: alipay_refund
+            params:
+              order_no: "{{ order_no }}"
+              amount: "{{ amount }}"
+              reason: "{{ reason }}"
+            out: rf
+      else:
+        - plugin.call:
+            plugin: pay
+            function: wechat_refund
+            params:
+              order_no: "{{ order_no }}"
+              amount: "{{ amount }}"
+              reason: "{{ reason }}"
+            out: rf
+  - sql.exec:
+      ds: main
+      sql: "INSERT INTO payments(order_no, provider, status, txn_id) VALUES(?,?,?,?)"
+      params:
+        order_no: "{{ order_no }}"
+        provider: "{{ provider }}"
+        status: "refunded"
+        txn_id: "{{ rf.refund_id }}"
+      order: [order_no, provider, status, txn_id]
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: "{{ rf }}" }
+      body: "{{ rf }}"

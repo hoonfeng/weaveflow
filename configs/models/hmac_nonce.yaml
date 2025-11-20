@@ -1,0 +1,11 @@
+table: hmac_nonces
+columns:
+  id: { type: BIGINT, pk: true, auto: true }
+  key_hash: { type: VARCHAR(64), notNull: true }
+  nonce: { type: VARCHAR(128), notNull: true }
+  ts_text: { type: VARCHAR(32), notNull: true }
+  created_at: { type: TIMESTAMP, default: CURRENT_TIMESTAMP }
+indexes:
+  - name: uniq_hmac_nonces_key_nonce
+    columns: [key_hash, nonce]
+    unique: true

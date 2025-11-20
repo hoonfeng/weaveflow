@@ -1,0 +1,64 @@
+module: admin
+endpoint: users_update
+method: PUT
+path: /api/admin/users/{id}
+auth: jwt
+roles: [admin]
+permissions: [admin.users.update]
+docs:
+  title: 更新用户
+  response:
+    description: 返回更新的用户ID，包含通用包装
+    schema:
+      type: object
+      props:
+        code: { type: int, description: 返回码 }
+        msg: { type: string, description: 返回信息 }
+        data:
+          type: object
+          props:
+            id: { type: integer, description: 用户ID }
+    example:
+      code: 0
+      msg: ok
+      data: { id: 10 }
+request:
+  body:
+    username: { type: string, required: false, constraints: { minLen: "3", regex: "^[A-Za-z0-9_]+$" } }
+    email: { type: string, required: false, constraints: { format: email } }
+    password: { type: string, required: false }
+steps:
+  - branch:
+      if: "{{ password }}"
+      then:
+        - transform:
+            mapping:
+              id: "{{ id }}"
+              salt: "{{ uuid username }}"
+              password_hash: "{{ sha256_concat password salt }}"
+        - sql.exec:
+            ds: main
+            sql: "UPDATE users SET username=COALESCE(?,username), email=COALESCE(?,email), password_hash=COALESCE(?,password_hash), salt=COALESCE(?,salt) WHERE id=?"
+            params:
+              username: "{{ username }}"
+              email: "{{ email }}"
+              password_hash: "{{ password_hash }}"
+              salt: "{{ salt }}"
+              id: "{{ id }}"
+            order: [username, email, password_hash, salt, id]
+      else:
+        - transform:
+            mapping:
+              id: "{{ id }}"
+        - sql.exec:
+            ds: main
+            sql: "UPDATE users SET username=COALESCE(?,username), email=COALESCE(?,email) WHERE id=?"
+            params:
+              username: "{{ username }}"
+              email: "{{ email }}"
+              id: "{{ id }}"
+            order: [username, email, id]
+  - response:
+      status: 200
+      wrap: { code: 0, msg: ok, data: { id: "{{ id }}" } }
+      body: { id: "{{ id }}" }
